@@ -1,0 +1,28 @@
+---
+title: "Bycatch and discards estimation for New Zealand fisheries `bde`"
+author: "Charles T T Edwards (NIWA, Wellington, New Zealand)"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    fig_caption: yes
+    toc: no
+vignette: >
+  %\VignetteIndexEntry{lhm}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.path = 'fig/bde-', fig.width = 6, tidy = TRUE, tidy.opts = list(blank = TRUE, width.cutoff = 95), message = FALSE, warning = FALSE, collapse = TRUE, comment = "#>")
+```
+
+```{r}
+library(bde)
+```
+
+# Introduction
+
+The `bde` package is designed to facilitate estimation of bycatch and discards in New Zealand fisheries using a two-part statistical model. The model is fitted to observer sampling data using the Bayesian `rstan` estimation framework. Estimated parameters are then used to predict the catch for unobserved commercial fishing effort.
+
+We illustrate utility of the package using simulated data.
+
