@@ -23,7 +23,8 @@ all: install clean
 	Rscript -e "library(devtools); build_vignettes()"
 	
 ./data/*.rda: $(STAN_FILES)
-	Rscript -e "mdl <- readLines('./stan/model_year_area.stan'); save(mdl, file = './data/model_year_area.rda')"
+	Rscript -e "mdl <- readLines('./stan/regression_d1_year.stan'); save(mdl, file = './data/regression_d1_year.rda')"
+	Rscript -e "mdl <- readLines('./stan/regression_d2_year_area.stan'); save(mdl, file = './data/regression_d2_year_area.rda')"
 	
 install: $(PKG_FILES) ./inst/doc/*.html ./data/*.rda
 	Rcmd build --no-build-vignettes .
