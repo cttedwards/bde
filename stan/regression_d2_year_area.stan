@@ -12,7 +12,15 @@
 // gamma: bernoulli regression coefficients
 // beta: log-normal regression coefficients
 
-
+functions {
+	int num_nonzero(int[] y) {
+		int np = 0;
+		for (n in 1:size(y))
+			if (y[n] > 0)
+				np += 1;
+		return np;
+	}
+}
 data {
 
 	// DIMENSIONS
@@ -35,10 +43,20 @@ data {
 	int eff_predict[N[2]];
 	
 	// LOGICALS
-	int fit_by_tow;
+	int fit_interaction;
 }
 transformed data {
 
+	// number of positive 
+	// catch records
+	int N_nz = num_nonzero(bin);
+	
+	// positive catch vector
+	// and look-up vectors
+	real pos_nz[N_nz];
+	int XA_sample_nz[N_nz];
+	int XY_sample_nz[N_nz];
+	
 	// aggregated data
 	real pos_sum[Y, A];
 	int  bin_sum[Y, A];
@@ -48,7 +66,7 @@ transformed data {
 	
 	// estimation of interaction
 	// terms
-	real tau = fit_by_tow ? 1.0 : 0.0001;
+	real tau = fit_interaction ? 1.0 : 0.0001;
 	
 	// augmented location
 	// priors for intercept 
@@ -107,6 +125,28 @@ transformed data {
 			eff_resid_sum[i, j] = max(eff_predict_sum[i, j] - eff_sample_sum[i, j], 0);
 		}
 	}
+	
+	{
+		int loc = 1;
+		for (i in 1:N[1]) {
+			if (bin[i]) {
+			
+				// positive catch record
+				pos_nz[loc]       = pos[i];
+				
+				// look-up vectors
+				XY_sample_nz[loc] = XY_sample[i];
+				XA_sample_nz[loc] = XA_sample[i];
+				
+				loc += 1;
+			}
+		}
+	}
+	
+	// TO DO?: for each year and area create a positive record look up value
+	// such that i, j vector = 1 but is zero otherwise (to allow more 
+	// efficient access to pos vector). 
+	
 
 }
 parameters {
@@ -131,41 +171,36 @@ transformed parameters {
 }
 model {
 	
-	if (fit_by_tow) {
+	real theta_logit;
+	real mu_log[N_nz];
 	
-		real theta_logit;
-		real mu_log;
+	// binomial model using aggregated
+	// sufficient statistic
+	for (i in 1:Y) {
+		for (j in 1:A) {
 	
-		// likelihood
-		for(i in 1:N[1]) {
-		
-			theta_logit = gamma0 + gammaY[XY_sample[i]] + gammaA[XA_sample[i]];
-			mu_log      = beta0 + betaY[XY_sample[i]] + betaA[XA_sample[i]] + betaI[XY_sample[i], XA_sample[i]];
-		
-			bin[i] ~ bernoulli_logit(theta_logit);
-			if (bin[i] > 0) {
-				pos[i] ~ lognormal(mu_log, sigma[XY_sample[i]]);
-			}
-		}
-	} else {
-	
-		real theta_logit;
-		real mu_log;
-	
-		// likelihood
-		for (i in 1:Y) {
-			for (j in 1:A) {
-		
-				theta_logit = gamma0 + gammaY[i] + gammaA[j];
-				mu_log      = beta0 + betaY[i] + betaA[j];
-		
-				bin_sum[i, j] ~ binomial_logit(eff_sample_sum[i, j], theta_logit);
-				if (bin_sum[i, j] > 0) {
-					pos_sum[i, j] ~ lognormal(mu_log + log(bin_sum[i, j]), sigma[XY_sample[i]]);
-				}
-			}
+			theta_logit = gamma0 + gammaY[i] + gammaA[j];
+
+			bin_sum[i, j] ~ binomial_logit(eff_sample_sum[i, j], theta_logit);
 		}
 	}
+	
+	// positive catch log-normal model
+	if (fit_interaction) {
+	    
+    	for(i in 1:N_nz) {
+    	
+    		mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]] + betaI[XY_sample_nz[i], XA_sample_nz[i]];
+    	} 
+	} else {
+	    
+	    for(i in 1:N_nz) {
+    	
+    		mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]];
+    	}
+	}
+	
+	pos_nz ~ lognormal(mu_log, sigma[XY_sample_nz]);
 	
 	// augmented priors for
 	// intercept parameters
