@@ -24,5 +24,128 @@ library(bde)
 
 The `bde` package is designed to facilitate estimation of bycatch and discards in New Zealand fisheries using a two-part statistical model. The model is fitted to observer sampling data using the Bayesian `rstan` estimation framework. Estimated parameters are then used to predict the catch for unobserved commercial fishing effort.
 
+The model uses a Biomial likelihood to fit to the aggregated count data $z_j$ by, for example, year ($j$):
+\[
+    z_j \sim Binomial(n_j, \theta_j)
+\]
+whereas the positive catch data are included on a tow-by-tow basis. For observer record $i$, we therefore have:
+\[
+    y_i \sim log-Normal(\mu_j, \sigma_j)
+\]
+which is necessary for estimation of the standard error term $\sigma_j$. The two-model parts are considered independent.
+
 We illustrate utility of the package using simulated data.
 
+```{r}
+# dimensions
+years   <- 2000:2010
+nyears  <- length(years)
+niter   <- 2
+
+# observer sampling effort
+obs_effort <- rep(20, nyears)
+com_effort <- rep(30, nyears)
+
+# simulate data
+
+dat  <- list()
+pars <- list()
+
+for (i in 1:niter) {
+    
+    # expected observation error = 1
+    sigma  <- rexp(length(years), 1)
+    
+    # expected success = 0.25
+    theta  <- rbeta(length(years), 1, 3)
+    
+    # expected positive catch rate = 2 * exp(sigma^2 / 2)
+    mu_log <- rnorm(length(years), log(2), sigma)
+    
+    # record parameters
+    pars[[i]] <- list(sigma = sigma, theta = theta, mu_log = mu_log)
+    
+    # data.frames
+    dat_obs <- data.frame(year = numeric(), effort = integer(), bin = integer(), biomass = numeric()) 
+    
+    dat_com <- data.frame(year = numeric(), effort = integer(), bin = integer(), biomass = numeric()) 
+    
+    for (j in 1:nyears) {
+        
+        effort <- max(obs_effort[j], com_effort[j])
+        
+        bin <- rbinom(effort, 1, theta)
+        
+        pos <- rlnorm(effort, mu_log, 1)
+            
+        dat_obs <- rbind(dat_obs, 
+                         data.frame(year = rep(years[j], obs_effort[j]),
+                                    effort = rep(1, obs_effort[j]), 
+                                    bin = sample(bin, obs_effort[j]), 
+                                    biomass = sample(bin * pos, obs_effort[j])))
+          
+        dat_com <- rbind(dat_com, 
+                         data.frame(year = rep(years[j], effort),
+                                    effort = rep(1, effort), 
+                                    bin = bin, 
+                                    biomass = bin * pos))  
+    }
+    
+    dat[[i]] <- list(obs = dat_obs, com = dat_com)
+}
+    
+save(dat, pars, nyears, niter, file = "sim_data.rda")
+
+```
+
+Our intention is to first obtain a maximum posterior density estimate and compare to the input parameter values. We will then fit a fully Bayesian version to examine formal model performance diagnostics.
+
+```{r}
+# get regression model *.stan code from
+# package and write to current directory
+model_code("regression_year", path = ".")
+
+# compile using rstan
+mdl <- stan_model(file = "./regression_year.stan")
+```
+
+## Maximum posterior density estimate
+
+```{r}
+
+for (i in 1:niter) {
+
+    # coerce observer data
+    dat.sample <- data_prep(dat[[i]][['obs']], 
+                            var.names   = list(from = c('biomass', 'bin'), to = c('biomass', 'bin')), 
+                            cofac.names = list(from = c('year'), to = c('year')), 
+                            covar.names = list(from = 'effort', to = 'effort'))
+    
+    
+    # coerce commercial effort data
+    dat.predict <- data_prep(dat[[i]][['com']], 
+                             var.names   = NULL,
+                             cofac.names = list(from = c('year'), to = c('year')),
+                             covar.names = list(from = 'effort', to = 'effort'))
+    
+    # make dimensions and labels
+    X.dims     <- data_dims(dat.sample, dat.predict)
+    X.dimnames <- data_dims(dat.sample, dat.predict, dimnames = TRUE)
+    
+    # make design matrices
+    X.sample  <- data_design_matrix(dat.sample,  X.dims, X.dimnames)
+    X.predict <- data_design_matrix(dat.predict, X.dims, X.dimnames)
+
+    # create input data list
+    mdl.dat <- model_data(dat.sample, dat.predict, X.dims, X.sample, X.predict)
+
+    # fit model using random initialisation
+    mdl.map <- optimizing(mdl, mdl.dat)
+        
+    # extract map estimates
+    mdl.out <- map(mdl.map, 
+                   pars = c("bin_hat", "pos_hat"), 
+                   dims = list(0, 0))
+
+}
+```

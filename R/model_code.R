@@ -8,12 +8,12 @@
 #' @export
 model_code <- function(id, path = ".") {
     	
+	if (missing(id)) 
+		stop("supply one of: id = 'year' or 'year_area'")
+		
 	switch(id,
-         "bycatch_HHL"          = data("regression_d2_year_area", package = "bde"),
-         "regression_year"      = data("regression_d1_year", package = "bde"),
-         "regression_year_area" = data("regression_d2_year_area", package = "bde"))
+         "bycatch_HHL" = { data("reg02", package = "bde", envir = environment()); writeLines(reg02, con = paste0(path, "/", id, ".stan")) },
+         "year"        = { data("reg01", package = "bde", envir = environment()); writeLines(reg01, con = paste0(path, "/", id, ".stan")) },
+         "year_area"   = { data("reg02", package = "bde", envir = environment()); writeLines(reg02, con = paste0(path, "/", id, ".stan")) })
     
-    writeLines(mdl, con = paste0(path, "/", id, ".stan"))
-	
-	rm(mdl)
 }

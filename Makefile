@@ -22,11 +22,11 @@ all: install clean
 	Rcmd INSTALL --build .
 	Rscript -e "library(devtools); build_vignettes()"
 	
-./data/*.rda: $(STAN_FILES)
-	Rscript -e "mdl <- readLines('./stan/regression_d1_year.stan'); save(mdl, file = './data/regression_d1_year.rda')"
-	Rscript -e "mdl <- readLines('./stan/regression_d2_year_area.stan'); save(mdl, file = './data/regression_d2_year_area.rda')"
+./data/*.RData: $(STAN_FILES)
+	Rscript -e "reg01 <- readLines('./stan/regression_year.stan'); save(reg01, file = './data/reg01.RData')"
+	Rscript -e "reg02 <- readLines('./stan/regression_year_area.stan'); save(reg02, file = './data/reg02.RData')"
 	
-install: $(PKG_FILES) ./inst/doc/*.html ./data/*.rda
+install: $(PKG_FILES) ./inst/doc/*.html ./data/*.RData
 	Rcmd build --no-build-vignettes .
 	Rcmd INSTALL --html .
 	
