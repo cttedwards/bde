@@ -1,4 +1,4 @@
 .onAttach <- function(libname, pkgname)
 {
-    packageStartupMessage("bde version 1.0.0.1049 (2018-06-25 13:22:13)")
+    packageStartupMessage("bde version 1.0.0.1053 (2018-06-29 12:40:28)")
 }

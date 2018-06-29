@@ -9,11 +9,19 @@
 model_code <- function(id, path = ".") {
     	
 	if (missing(id)) 
-		stop("supply one of: id = 'year' or 'year_area'")
+		stop("supply one of: id = 'year' or 'year_area' or 'year_area_method'")
 		
-	switch(id,
-         "bycatch_HHL" = { data("reg02", package = "bde", envir = environment()); writeLines(reg02, con = paste0(path, "/", id, ".stan")) },
-         "year"        = { data("reg01", package = "bde", envir = environment()); writeLines(reg01, con = paste0(path, "/", id, ".stan")) },
-         "year_area"   = { data("reg02", package = "bde", envir = environment()); writeLines(reg02, con = paste0(path, "/", id, ".stan")) })
+	def <- switch(id, 
+				  "year"             = "year",
+				  "year_area"        = "year_area",
+				  "year_area_method" = "year_area_method",
+				  "bycatch_HHL"      = "year_area_method")
+		
+	output.filename <- paste0(path, "/", id, ".stan")
+	
+	switch(def,
+         "year"               = { data("reg01", package = "bde", envir = environment()); writeLines(reg01, con = output.filename) },
+         "year_area"          = { data("reg02", package = "bde", envir = environment()); writeLines(reg02, con = output.filename) },
+		 "year_area_method"   = { data("reg03", package = "bde", envir = environment()); writeLines(reg03, con = output.filename) })
     
 }

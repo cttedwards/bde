@@ -27,11 +27,25 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, f
 		ind <- "year"
 			if ("area" %in% names(X.dims))
 				ind <- c(ind, "area")
+			if ("gear" %in% names(X.dims))
+			    ind <- c(ind, "method")
 	}
 	
 	ind <- paste(ind, collapse = "_")
 	
     switch(ind,
+           
+           "year_area_method" = list(N = c(nrow(data.sample), nrow(data.predict)), 
+                              Y = X.dims['year'], 
+                              A = X.dims['area'],
+                              G = X.dims['gear'],
+                              XY_sample  = X.sample[['year']],  XA_sample  = X.sample[['area']],  XG_sample  = X.sample[['gear']], 
+                              XY_predict = X.predict[['year']], XA_predict = X.predict[['area']], XG_predict = X.predict[['gear']], 
+                              pos = as.numeric(data.sample$biomass), 
+                              bin = as.integer(data.sample$bin), 
+                              eff_sample  = as.integer(data.sample$effort), 
+                              eff_predict = as.integer(data.predict$effort),
+                              fit_interaction = as.integer(fit_interaction)),
 	
 		"year_area" = list(N = c(nrow(data.sample), nrow(data.predict)), 
 							Y = X.dims['year'], 
