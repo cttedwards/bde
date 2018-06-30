@@ -250,7 +250,7 @@ generated quantities {
 	real D_pos[2, Y, A];
 	
 	// model output
-	real predicted_bycatch[Y, A];
+	real predicted_catch[Y, A];
 	
 	// INITIALISE TO ZERO
 	for (i in 1:Y) {
@@ -334,7 +334,7 @@ generated quantities {
 	for (i in 1:Y) {
 		for (j in 1:A) {
 		
-			predicted_bycatch[i, j] = pos_sim_agg[i, j] + pos_sim_com[i, j];
+			predicted_catch[i, j] = pos_sim_agg[i, j] + pos_sim_com[i, j];
 		}
 	}
 }
