@@ -126,7 +126,7 @@ transformed data {
 	for (i in 1:N[2]) {
 			
 		// commercial effort
-		eff_predict_sum[XY_predict[i], XA_predict[i], XG_predict[i],, XV_sample[i]] += eff_predict[i];
+		eff_predict_sum[XY_predict[i], XA_predict[i], XG_predict[i], XV_predict[i]] += eff_predict[i];
 	}
 	
 	for (i in 1:Y) {
