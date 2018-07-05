@@ -22,7 +22,8 @@ data_design_matrix <- function(data, X.dims, X.dimnames) {
     
     for (i in cofac.names) {
         
-        X[[i]] <- match(data[, i], X.dimnames[[i]])    
+        if (i %in% colnames(data))
+            X[[i]] <- match(data[, i], X.dimnames[[i]])    
         
     }
     
