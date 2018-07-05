@@ -23,6 +23,7 @@ all: install clean
 	Rscript -e "library(devtools); build_vignettes()"
 	
 ./data/*.RData: $(STAN_FILES)
+	$(RM) data/*.RData
 	Rscript -e "reg01a <- readLines('./stan/regression01_year.stan');                      save(reg01a, file = './data/reg01a.RData')"
 	Rscript -e "reg01b <- readLines('./stan/regression01_year_area.stan');                 save(reg01b, file = './data/reg01b.RData')"
 	Rscript -e "reg01c <- readLines('./stan/regression01_year_area_method.stan');          save(reg01c, file = './data/reg01c.RData')"
