@@ -1,13 +1,13 @@
 // regression of 
-// by-catch data 
+// by-catch and discard 
+// data using a two-part
+// binomial/log-normal model 
 
 // NOTATION
 //
-// N: number of data records
+// N: number of data records (estimation; prediction)
 // A: number of areas
 // Y: number of years
-// P: periods
-// M: meal processing plant
 // X: design matrices
 // gamma: bernoulli regression coefficients
 // beta: log-normal regression coefficients
@@ -74,7 +74,7 @@ transformed data {
 		n[2] = N[2];
 	
 		// binomial intercept
-		loc_prior[1] = logit(sum(bin) / n[1]);
+		loc_prior[1] = (sum(bin) == n[1]) ? 1e3 : logit(sum(bin) / n[1]);
 		
 		// lognormal intercept
 		loc_prior[2] = 0.0;
