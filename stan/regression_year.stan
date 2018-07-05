@@ -40,7 +40,7 @@ data {
 	int eff_predict[N[2]];
 	
 	// LOGICALS
-	int fit_interaction;
+	// none
 }
 transformed data {
 
@@ -210,13 +210,13 @@ generated quantities {
 	
 	int  bin_sim_agg[Y];
 	real pos_sim_agg[Y];
-	
+	int  bin_sim_obs[Y];
+	real pos_sim_obs[Y];
 	int  bin_sim_com[Y];
 	real pos_sim_com[Y];
 	
-	// discrepancy measures
-	real D_bin[2, Y];
-	real D_pos[2, Y];
+	// discrepancy measure
+	real D[2] = {0.0, 0.0};
 	
 	// model output
 	real predicted_catch[Y];
@@ -229,12 +229,6 @@ generated quantities {
 			
 			bin_sim_sum[i] = 0;
 			pos_sim_sum[i] = 0.0;
-			
-			D_bin[1, i] = 0.0;
-			D_bin[2, i] = 0.0;
-			
-			D_pos[1, i] = 0.0;
-			D_pos[2, i] = 0.0;
 	}
 	
 	// CALCULATE EXPECTED VALUES
@@ -268,8 +262,7 @@ generated quantities {
 	}
 	
 	// SIMULATE AGGREGATED OBSERVATIONAL DATA
-	// AND COMMERCIAL CATCH PREDICTION USING
-	// RESIDUAL EFFORT
+	// FOR MODEL DIAGNOSTICS
 	for (i in 1:Y) {
 		
 		theta_logit = gamma0 + gammaY[i];
@@ -277,6 +270,19 @@ generated quantities {
 		
 		bin_sim_agg[i] = binomial_rng(eff_sample_sum[i], inv_logit(theta_logit));
 		pos_sim_agg[i] = bin_sim_agg[i] > 0 ? lognormal_rng(mu_log + log(bin_sim_agg[i]), sigma[i]) : 0.0;
+		
+	}
+	
+	// SIMULATE AGGREGATED OBSERVATIONAL DATA
+	// AND COMMERCIAL CATCH PREDICTION USING
+	// RESIDUAL EFFORT
+	for (i in 1:Y) {
+		
+		theta_logit = gamma0 + gammaY[i];
+		mu_log      = beta0  + betaY[i];
+		
+		bin_sim_obs[i] = binomial_rng(eff_sample_sum[i], inv_logit(theta_logit));
+		pos_sim_obs[i] = bin_sim_obs[i] > 0 ? lognormal_rng(mu_log + log(bin_sim_obs[i]), sigma[i]) : 0.0;
 			
 		bin_sim_com[i] = binomial_rng(eff_resid_sum[i], inv_logit(theta_logit));
 		pos_sim_com[i] = bin_sim_com[i] > 0 ? lognormal_rng(mu_log + log(bin_sim_com[i]), sigma[i]) : 0.0;
@@ -286,16 +292,13 @@ generated quantities {
 	// CALCULATE DISCREPANCIES
 	for (i in 1:Y) {
 		
-		D_bin[1, i] += pow(pow(bin_sum[i], 0.5)     - pow(bin_hat_sum[i], 0.5), 2.0);
-		D_bin[2, i] += pow(pow(bin_sim_sum[i], 0.5) - pow(bin_hat_sum[i], 0.5), 2.0);
-			
-		D_pos[1, i] += pow(pow(pos_sum[i], 0.5)     - pow(pos_hat_sum[i], 0.5), 2.0);
-		D_pos[2, i] += pow(pow(pos_sim_sum[i], 0.5) - pow(pos_hat_sum[i], 0.5), 2.0);
+		D[1] += pow(pow(pos_sum[i], 0.5)     - pow(pos_hat_sum[i], 0.5), 2.0);
+		D[2] += pow(pow(pos_sim_sum[i], 0.5) - pow(pos_hat_sum[i], 0.5), 2.0);
 	}
 	
 	// MODEL OUTPUT
 	for (i in 1:Y) {
-		predicted_catch[i] = pos_sim_agg[i] + pos_sim_com[i];
+		predicted_catch[i] = pos_sim_obs[i] + pos_sim_com[i];
 	}
 }
 

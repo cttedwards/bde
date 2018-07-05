@@ -43,7 +43,7 @@ data {
 	int eff_predict[N[2]];
 	
 	// LOGICALS
-	int fit_interaction;
+	// none
 }
 transformed data {
 
@@ -63,10 +63,6 @@ transformed data {
 	int  eff_sample_sum[Y, A];
 	int  eff_predict_sum[Y, A];
 	int  eff_resid_sum[Y, A];
-	
-	// estimation of interaction
-	// terms
-	real tau = fit_interaction ? 1.0 : 0.0001;
 	
 	// augmented location
 	// priors for intercept 
@@ -186,20 +182,10 @@ model {
 	}
 	
 	// positive catch log-normal model
-	if (fit_interaction) {
-	    
-    	for(i in 1:N_nz) {
+	for(i in 1:N_nz) {
     	
-    		mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]] + betaI[XY_sample_nz[i], XA_sample_nz[i]];
-    	} 
-	} else {
-	    
-	    for(i in 1:N_nz) {
-    	
-    		mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]];
-    	}
-	}
-	
+    	mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]] + betaI[XY_sample_nz[i], XA_sample_nz[i]];
+    }
 	pos_nz ~ lognormal(mu_log, sigma[XY_sample_nz]);
 	
 	// augmented priors for
@@ -215,7 +201,7 @@ model {
 	betaY ~ normal(0, 1);
 	betaA ~ normal(0, 1);
 	for (i in 1:Y)
-		betaI[i] ~ normal(0, tau);
+		betaI[i] ~ normal(0, 1);
 	
 	// error terms
 	sigma ~ normal(0,1);
@@ -241,13 +227,13 @@ generated quantities {
 	
 	int  bin_sim_agg[Y, A];
 	real pos_sim_agg[Y, A];
-	
+	int  bin_sim_obs[Y, A];
+	real pos_sim_obs[Y, A];
 	int  bin_sim_com[Y, A];
 	real pos_sim_com[Y, A];
 	
-	// discrepancy measures
-	real D_bin[2, Y, A];
-	real D_pos[2, Y, A];
+	// discrepancy measure
+	real D[2] = {0.0, 0.0};
 	
 	// model output
 	real predicted_catch[Y, A];
@@ -261,12 +247,6 @@ generated quantities {
 			
 			bin_sim_sum[i, j] = 0;
 			pos_sim_sum[i, j] = 0.0;
-			
-			D_bin[1, i, j] = 0.0;
-			D_bin[2, i, j] = 0.0;
-			
-			D_pos[1, i, j] = 0.0;
-			D_pos[2, i, j] = 0.0;
 		}
 	}
 	
@@ -301,8 +281,7 @@ generated quantities {
 	}
 	
 	// SIMULATE AGGREGATED OBSERVATIONAL DATA
-	// AND COMMERCIAL CATCH PREDICTION USING
-	// RESIDUAL EFFORT
+	// FOR MODEL DIAGNOSTICS
 	for (i in 1:Y) {
 		for (j in 1:A) {
 		
@@ -311,6 +290,20 @@ generated quantities {
 		
 			bin_sim_agg[i, j] = binomial_rng(eff_sample_sum[i, j], inv_logit(theta_logit));
 			pos_sim_agg[i, j] = bin_sim_agg[i, j] > 0 ? lognormal_rng(mu_log + log(bin_sim_agg[i, j]), sigma[i]) : 0.0;
+		}
+	}
+	
+	// SIMULATE AGGREGATED OBSERVATIONAL DATA
+	// AND COMMERCIAL CATCH PREDICTION USING
+	// RESIDUAL EFFORT
+	for (i in 1:Y) {
+		for (j in 1:A) {
+		
+			theta_logit = gamma0 + gammaY[i] + gammaA[j];
+			mu_log      = beta0  + betaY[i] + betaA[j] + betaI[i, j];
+		
+			bin_sim_obs[i, j] = binomial_rng(eff_sample_sum[i, j], inv_logit(theta_logit));
+			pos_sim_obs[i, j] = bin_sim_obs[i, j] > 0 ? lognormal_rng(mu_log + log(bin_sim_obs[i, j]), sigma[i]) : 0.0;
 			
 			bin_sim_com[i, j] = binomial_rng(eff_resid_sum[i, j], inv_logit(theta_logit));
 			pos_sim_com[i, j] = bin_sim_com[i, j] > 0 ? lognormal_rng(mu_log + log(bin_sim_com[i, j]), sigma[i]) : 0.0;
@@ -321,12 +314,9 @@ generated quantities {
 	// CALCULATE DISCREPANCIES
 	for (i in 1:Y) {
 		for (j in 1:A) {
-		
-			D_bin[1, i, j] += pow(pow(bin_sum[i, j], 0.5)     - pow(bin_hat_sum[i, j], 0.5), 2.0);
-			D_bin[2, i, j] += pow(pow(bin_sim_sum[i, j], 0.5) - pow(bin_hat_sum[i, j], 0.5), 2.0);
-			
-			D_pos[1, i, j] += pow(pow(pos_sum[i, j], 0.5)     - pow(pos_hat_sum[i, j], 0.5), 2.0);
-			D_pos[2, i, j] += pow(pow(pos_sim_sum[i, j], 0.5) - pow(pos_hat_sum[i, j], 0.5), 2.0);
+					
+			D[1] += pow(pow(pos_sum[i, j], 0.5)     - pow(pos_hat_sum[i, j], 0.5), 2.0);
+			D[2] += pow(pow(pos_sim_sum[i, j], 0.5) - pow(pos_hat_sum[i, j], 0.5), 2.0);
 		}
 	}
 	
@@ -334,7 +324,7 @@ generated quantities {
 	for (i in 1:Y) {
 		for (j in 1:A) {
 		
-			predicted_catch[i, j] = pos_sim_agg[i, j] + pos_sim_com[i, j];
+			predicted_catch[i, j] = pos_sim_obs[i, j] + pos_sim_com[i, j];
 		}
 	}
 }
