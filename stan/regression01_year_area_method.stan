@@ -8,7 +8,7 @@
 // N: number of data records (estimation; prediction)
 // A: number of areas
 // Y: number of years
-// M: fishing method
+// M: number of fishing methods
 // X: design matrices
 // gamma: bernoulli regression coefficients
 // beta: log-normal regression coefficients
@@ -47,7 +47,7 @@ data {
 	int eff_predict[N[2]];
 	
 	// LOGICALS
-	int fit_interaction;
+	// none
 }
 transformed data {
 
@@ -69,10 +69,6 @@ transformed data {
 	int  eff_predict_sum[Y, A, M];
 	int  eff_resid_sum[Y, A, M];
 	
-	// estimation of interaction
-	// terms
-	real tau = fit_interaction ? 1.0 : 0.0001;
-	
 	// augmented location
 	// priors for intercept 
 	// terms
@@ -83,7 +79,7 @@ transformed data {
 		n[2] = N[2];
 	
 		// binomial intercept
-		loc_prior[1] = logit(sum(bin) / n[1]);
+		loc_prior[1] = (sum(bin) == n[1]) ? 1e3 : logit(sum(bin) / n[1]);
 		
 		// lognormal intercept
 		loc_prior[2] = 0.0;
@@ -200,18 +196,9 @@ model {
 	}
 	
 	// positive catch log-normal model
-	if (fit_interaction) {
-	    
-    	for(i in 1:N_nz) {
+	for(i in 1:N_nz) {
     	
-    		mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]] + betaM[XM_sample_nz[i]] + betaI[XY_sample_nz[i], XA_sample_nz[i]];
-    	} 
-	} else {
-	    
-	    for(i in 1:N_nz) {
-    	
-    		mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]] + betaM[XM_sample_nz[i]];
-    	}
+    	mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]] + betaM[XM_sample_nz[i]] + betaI[XY_sample_nz[i], XA_sample_nz[i]];
 	}
 	
 	pos_nz ~ lognormal(mu_log, sigma[XY_sample_nz]);
@@ -261,9 +248,8 @@ generated quantities {
 	int  bin_sim_com[Y, A, M];
 	real pos_sim_com[Y, A, M];
 	
-	// discrepancy measures
-	real D_bin[2, Y, A, M];
-	real D_pos[2, Y, A, M];
+	// discrepancy measure
+	real D[2] = {0.0, 0.0};
 	
 	// model output
 	real predicted_catch[Y, A];
@@ -280,11 +266,6 @@ generated quantities {
 				bin_sim_sum[i, j, k] = 0;
 				pos_sim_sum[i, j, k] = 0.0;
 				
-				D_bin[1, i, j, k] = 0.0;
-				D_bin[2, i, j, k] = 0.0;
-				
-				D_pos[1, i, j, k] = 0.0;
-				D_pos[2, i, j, k] = 0.0;
 			}
 		}
 	}
@@ -342,12 +323,9 @@ generated quantities {
 	for (i in 1:Y) {
 		for (j in 1:A) {
 			for (k in 1:M) {
-		
-				D_bin[1, i, j, k] += pow(pow(bin_sum[i, j, k], 0.5)     - pow(bin_hat_sum[i, j, k], 0.5), 2.0);
-				D_bin[2, i, j, k] += pow(pow(bin_sim_sum[i, j, k], 0.5) - pow(bin_hat_sum[i, j, k], 0.5), 2.0);
-				
-				D_pos[1, i, j, k] += pow(pow(pos_sum[i, j, k], 0.5)     - pow(pos_hat_sum[i, j, k], 0.5), 2.0);
-				D_pos[2, i, j, k] += pow(pow(pos_sim_sum[i, j, k], 0.5) - pow(pos_hat_sum[i, j, k], 0.5), 2.0);
+						
+				D[1] += pow(pos_sum[i, j, k]     - pos_hat_sum[i, j, k], 2.0);
+				D[2] += pow(pos_sim_sum[i, j, k] - pos_hat_sum[i, j, k], 2.0);
 			}
 		}
 	}
