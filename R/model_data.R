@@ -58,8 +58,8 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 	
 	def <- switch(ind, 
 				  "year"                      = "reg01a", 
-				  "year_area"                 = ifelse(area.conjunct, "reg01b", "reg02b")
-				  "year_area_method"          = ifelse(area.conjunct, "reg01c", "reg02c")
+				  "year_area"                 = ifelse(area.conjunct, "reg01b", "reg02b"),
+				  "year_area_method"          = ifelse(area.conjunct, "reg01c", "reg02c"),
 				  "year_area_method_category" = ifelse(area.conjunct, "reg01d", "reg02d"))
 	
 	switch(def,
