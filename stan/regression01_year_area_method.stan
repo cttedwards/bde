@@ -1,12 +1,14 @@
 // regression of 
-// by-catch data 
+// by-catch and discard 
+// data using a two-part
+// binomial/log-normal model 
 
 // NOTATION
 //
-// N: number of data records
+// N: number of data records (estimation; prediction)
 // A: number of areas
 // Y: number of years
-// G: fishing method
+// M: fishing method
 // X: design matrices
 // gamma: bernoulli regression coefficients
 // beta: log-normal regression coefficients
@@ -26,15 +28,15 @@ data {
 	int N[2]; 
 	int Y;
 	int A;
-	int G;
+	int M;
 	
 	// LOOK-UP VECTORS
 	int XA_sample[N[1]];
 	int XY_sample[N[1]];
-	int XG_sample[N[1]];
+	int XM_sample[N[1]];
 	int XA_predict[N[2]];
 	int XY_predict[N[2]];
-	int XG_predict[N[2]];
+	int XM_predict[N[2]];
 	
 	// OBSERVER DATA
 	real pos[N[1]]; 
@@ -58,14 +60,14 @@ transformed data {
 	real pos_nz[N_nz];
 	int XA_sample_nz[N_nz];
 	int XY_sample_nz[N_nz];
-	int XG_sample_nz[N_nz];
+	int XM_sample_nz[N_nz];
 	
 	// aggregated data
-	real pos_sum[Y, A, G];
-	int  bin_sum[Y, A, G];
-	int  eff_sample_sum[Y, A, G];
-	int  eff_predict_sum[Y, A, G];
-	int  eff_resid_sum[Y, A, G];
+	real pos_sum[Y, A, M];
+	int  bin_sum[Y, A, M];
+	int  eff_sample_sum[Y, A, M];
+	int  eff_predict_sum[Y, A, M];
+	int  eff_resid_sum[Y, A, M];
 	
 	// estimation of interaction
 	// terms
@@ -97,7 +99,7 @@ transformed data {
 	// year and area
 	for (i in 1:Y) {
 		for (j in 1:A) {
-			for (k in 1:G) {
+			for (k in 1:M) {
 		
 				bin_sum[i, j, k] = 0;
 				pos_sum[i, j, k] = 0.0;
@@ -110,22 +112,22 @@ transformed data {
 	
 	for (i in 1:N[1]) {
 	
-		bin_sum[XY_sample[i], XA_sample[i], XG_sample[i]] += bin[i];
-		pos_sum[XY_sample[i], XA_sample[i], XG_sample[i]] += pos[i];
+		bin_sum[XY_sample[i], XA_sample[i], XM_sample[i]] += bin[i];
+		pos_sum[XY_sample[i], XA_sample[i], XM_sample[i]] += pos[i];
 		
 		// observer sampling effort
-		eff_sample_sum[XY_sample[i], XA_sample[i], XG_sample[i]] += eff_sample[i];
+		eff_sample_sum[XY_sample[i], XA_sample[i], XM_sample[i]] += eff_sample[i];
 	}
 	
 	for (i in 1:N[2]) {
 			
 		// commercial effort
-		eff_predict_sum[XY_predict[i], XA_predict[i], XG_predict[i]] += eff_predict[i];
+		eff_predict_sum[XY_predict[i], XA_predict[i], XM_predict[i]] += eff_predict[i];
 	}
 	
 	for (i in 1:Y) {
 		for (j in 1:A) {
-			for (k in 1:G) {
+			for (k in 1:M) {
 		
 				// residual (unobserved) commercial effort
 				eff_resid_sum[i, j, k] = max(eff_predict_sum[i, j, k] - eff_sample_sum[i, j, k], 0);
@@ -144,7 +146,7 @@ transformed data {
 				// look-up vectors
 				XY_sample_nz[loc] = XY_sample[i];
 				XA_sample_nz[loc] = XA_sample[i];
-				XG_sample_nz[loc] = XG_sample[i];
+				XM_sample_nz[loc] = XM_sample[i];
 				
 				loc += 1;
 			}
@@ -163,13 +165,13 @@ parameters {
 	real      gamma0;
 	vector[Y] gammaY;
 	vector[A] gammaA;
-	vector[G] gammaG;
+	vector[M] gammaM;
 	
 	// positive catch coefficients
 	real      beta0;
 	vector[Y] betaY;
 	vector[A] betaA;
-	vector[G] betaG;
+	vector[M] betaM;
 	vector[A] betaI[Y];
 	
 	// observation error
@@ -188,9 +190,9 @@ model {
 	// sufficient statistic
 	for (i in 1:Y) {
 		for (j in 1:A) {
-			for (k in 1:G) {
+			for (k in 1:M) {
 	
-				theta_logit = gamma0 + gammaY[i] + gammaA[j] + gammaG[k];
+				theta_logit = gamma0 + gammaY[i] + gammaA[j] + gammaM[k];
 
 				bin_sum[i, j, k] ~ binomial_logit(eff_sample_sum[i, j, k], theta_logit);
 			}
@@ -202,13 +204,13 @@ model {
 	    
     	for(i in 1:N_nz) {
     	
-    		mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]] + betaG[XG_sample_nz[i]] + betaI[XY_sample_nz[i], XA_sample_nz[i]];
+    		mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]] + betaM[XM_sample_nz[i]] + betaI[XY_sample_nz[i], XA_sample_nz[i]];
     	} 
 	} else {
 	    
 	    for(i in 1:N_nz) {
     	
-    		mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]] + betaG[XG_sample_nz[i]];
+    		mu_log[i] = beta0 + betaY[XY_sample_nz[i]] + betaA[XA_sample_nz[i]] + betaM[XM_sample_nz[i]];
     	}
 	}
 	
@@ -222,12 +224,12 @@ model {
 	// logistic regression priors
 	gammaY ~ normal(0, 1);
 	gammaA ~ normal(0, 1);
-	gammaG ~ normal(0, 1);
+	gammaM ~ normal(0, 1);
 	
 	// log-normal regression priors
 	betaY ~ normal(0, 1);
 	betaA ~ normal(0, 1);
-	betaG ~ normal(0, 1);
+	betaM ~ normal(0, 1);
 	for (i in 1:Y)
 		betaI[i] ~ normal(0, tau);
 	
@@ -244,32 +246,33 @@ generated quantities {
 	// expected values
 	real bin_hat[N[1]];
 	real pos_hat[N[1]];
-	real bin_hat_sum[Y, A, G];
-	real pos_hat_sum[Y, A, G];
+	real bin_hat_sum[Y, A, M];
+	real pos_hat_sum[Y, A, M];
 	
 	// simulated data
 	int  bin_sim[N[1]];
 	real pos_sim[N[1]];
-	int  bin_sim_sum[Y, A, G];
-	real pos_sim_sum[Y, A, G];
+	int  bin_sim_sum[Y, A, M];
+	real pos_sim_sum[Y, A, M];
 	
-	int  bin_sim_agg[Y, A, G];
-	real pos_sim_agg[Y, A, G];
+	int  bin_sim_agg[Y, A, M];
+	real pos_sim_agg[Y, A, M];
 	
-	int  bin_sim_com[Y, A, G];
-	real pos_sim_com[Y, A, G];
+	int  bin_sim_com[Y, A, M];
+	real pos_sim_com[Y, A, M];
 	
 	// discrepancy measures
-	real D_bin[2, Y, A, G];
-	real D_pos[2, Y, A, G];
+	real D_bin[2, Y, A, M];
+	real D_pos[2, Y, A, M];
 	
 	// model output
 	real predicted_catch[Y, A];
+	real predicted_catch_cofactor[Y, A, M];
 	
 	// INITIALISE TO ZERO
 	for (i in 1:Y) {
 		for (j in 1:A) {
-			for (k in 1:G) {
+			for (k in 1:M) {
 			
 				bin_hat_sum[i, j, k] = 0;
 				pos_hat_sum[i, j, k] = 0.0;
@@ -291,14 +294,14 @@ generated quantities {
 	// YEAR AND AREA
 	for(i in 1:N[1]) {
 			
-		theta_logit = gamma0 + gammaY[XY_sample[i]] + gammaA[XA_sample[i]] + gammaG[XG_sample[i]];
-		mu_log      = beta0 + betaY[XY_sample[i]] + betaA[XA_sample[i]] + betaG[XG_sample[i]] + betaI[XY_sample[i], XA_sample[i]];
+		theta_logit = gamma0 + gammaY[XY_sample[i]] + gammaA[XA_sample[i]] + gammaM[XM_sample[i]];
+		mu_log      = beta0 + betaY[XY_sample[i]] + betaA[XA_sample[i]] + betaM[XM_sample[i]] + betaI[XY_sample[i], XA_sample[i]];
 		
 		bin_hat[i] = inv_logit(theta_logit);
 		pos_hat[i] = bin[i] > 0 ? exp(mu_log + square(sigma[XY_sample[i]]) / 2) : 0.0;
 		
-		bin_hat_sum[XY_sample[i], XA_sample[i], XG_sample[i]] += bin_hat[i];
-		pos_hat_sum[XY_sample[i], XA_sample[i], XG_sample[i]] += pos_hat[i];
+		bin_hat_sum[XY_sample[i], XA_sample[i], XM_sample[i]] += bin_hat[i];
+		pos_hat_sum[XY_sample[i], XA_sample[i], XM_sample[i]] += pos_hat[i];
 	}
 	
 	// SIMULATE OBSERVATIONAL DATA 
@@ -306,14 +309,14 @@ generated quantities {
 	// AND AREA
 	for(i in 1:N[1]) {
 	
-		theta_logit = gamma0 + gammaY[XY_sample[i]] + gammaA[XA_sample[i]] + gammaG[XG_sample[i]];
-		mu_log      = beta0 + betaY[XY_sample[i]] + betaA[XA_sample[i]] + betaG[XG_sample[i]] + betaI[XY_sample[i], XA_sample[i]];
+		theta_logit = gamma0 + gammaY[XY_sample[i]] + gammaA[XA_sample[i]] + gammaM[XM_sample[i]];
+		mu_log      = beta0 + betaY[XY_sample[i]] + betaA[XA_sample[i]] + betaM[XM_sample[i]] + betaI[XY_sample[i], XA_sample[i]];
 		
 		bin_sim[i] = bernoulli_logit_rng(theta_logit);
 		pos_sim[i] = bin_sim[i] > 0 ? lognormal_rng(mu_log, sigma[XY_sample[i]]) : 0.0;
 			
-		bin_sim_sum[XY_sample[i], XA_sample[i], XG_sample[i]] += bin_sim[i];
-		pos_sim_sum[XY_sample[i], XA_sample[i], XG_sample[i]] += pos_sim[i];
+		bin_sim_sum[XY_sample[i], XA_sample[i], XM_sample[i]] += bin_sim[i];
+		pos_sim_sum[XY_sample[i], XA_sample[i], XM_sample[i]] += pos_sim[i];
 	}
 	
 	// SIMULATE AGGREGATED OBSERVATIONAL DATA
@@ -321,10 +324,10 @@ generated quantities {
 	// RESIDUAL EFFORT
 	for (i in 1:Y) {
 		for (j in 1:A) {
-			for (k in 1:G) {
+			for (k in 1:M) {
 			
-				theta_logit = gamma0 + gammaY[i] + gammaA[j] + gammaG[k];
-				mu_log      = beta0  + betaY[i] + betaA[j] + betaG[k] + betaI[i, j];
+				theta_logit = gamma0 + gammaY[i] + gammaA[j] + gammaM[k];
+				mu_log      = beta0  + betaY[i] + betaA[j] + betaM[k] + betaI[i, j];
 			
 				bin_sim_agg[i, j, k] = binomial_rng(eff_sample_sum[i, j, k], inv_logit(theta_logit));
 				pos_sim_agg[i, j, k] = bin_sim_agg[i, j, k] > 0 ? lognormal_rng(mu_log + log(bin_sim_agg[i, j, k]), sigma[i]) : 0.0;
@@ -338,7 +341,7 @@ generated quantities {
 	// CALCULATE DISCREPANCIES
 	for (i in 1:Y) {
 		for (j in 1:A) {
-			for (k in 1:G) {
+			for (k in 1:M) {
 		
 				D_bin[1, i, j, k] += pow(pow(bin_sum[i, j, k], 0.5)     - pow(bin_hat_sum[i, j, k], 0.5), 2.0);
 				D_bin[2, i, j, k] += pow(pow(bin_sim_sum[i, j, k], 0.5) - pow(bin_hat_sum[i, j, k], 0.5), 2.0);
@@ -355,8 +358,11 @@ generated quantities {
 		
 			predicted_catch[i, j] = 0.0;
 			
-			for (k in 1:G) {
+			for (k in 1:M) {
+			
 				predicted_catch[i, j] += pos_sim_agg[i, j, k] + pos_sim_com[i, j, k];
+				
+				predicted_catch_cofactor[i, j, k] = pos_sim_agg[i, j, k] + pos_sim_com[i, j, k];
 			}
 		}
 	}

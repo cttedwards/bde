@@ -280,6 +280,7 @@ generated quantities {
 	
 	// model output
 	real predicted_catch[Y, A];
+	real predicted_catch_cofactor[Y, A, G, V];
 	
 	// INITIALISE TO ZERO
 	for (i in 1:Y) {
@@ -380,6 +381,8 @@ generated quantities {
 				for (l in 1:V) {
 					
 					predicted_catch[i, j] += pos_sim_agg[i, j, k, l] + pos_sim_com[i, j, k, l];
+					
+					predicted_catch_cofactor[i, j, k, l] = pos_sim_agg[i, j, k, l] + pos_sim_com[i, j, k, l];
 				}
 			}
 		}
