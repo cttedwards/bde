@@ -13,7 +13,7 @@
 #' @return list containing data for \code{stan} model run. 
 #'
 #' @export
-model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, fit_interaction = TRUE) {
+model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict) {
     
     stopifnot(nrow(data.sample)  == length(X.sample[[1]]))
     stopifnot(nrow(data.predict) == length(X.predict[[1]]))
@@ -47,8 +47,7 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, f
                                      pos = as.numeric(data.sample$biomass), 
                                      bin = as.integer(data.sample$bin), 
                                      eff_sample  = as.integer(data.sample$effort), 
-                                     eff_predict = as.integer(data.predict$effort),
-                                     fit_interaction = as.integer(fit_interaction)),
+                                     eff_predict = as.integer(data.predict$effort)),
            
            "year_area_method" = list(N = c(nrow(data.sample), nrow(data.predict)), 
                               Y = X.dims['year'], 
@@ -59,8 +58,7 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, f
                               pos = as.numeric(data.sample$biomass), 
                               bin = as.integer(data.sample$bin), 
                               eff_sample  = as.integer(data.sample$effort), 
-                              eff_predict = as.integer(data.predict$effort),
-                              fit_interaction = as.integer(fit_interaction)),
+                              eff_predict = as.integer(data.predict$effort)),
 	
 		"year_area" = list(N = c(nrow(data.sample), nrow(data.predict)), 
 							Y = X.dims['year'], 
@@ -70,8 +68,7 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, f
 							pos = as.numeric(data.sample$biomass), 
 							bin = as.integer(data.sample$bin), 
 							eff_sample  = as.integer(data.sample$effort), 
-							eff_predict = as.integer(data.predict$effort),
-							fit_interaction = as.integer(fit_interaction)),
+							eff_predict = as.integer(data.predict$effort)),
 							 
 		"year" = list(N = c(nrow(data.sample), nrow(data.predict)), 
 						Y = X.dims['year'], 
@@ -80,7 +77,6 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, f
 						pos = as.numeric(data.sample$biomass), 
 						bin = as.integer(data.sample$bin), 
 						eff_sample  = as.integer(data.sample$effort), 
-						eff_predict = as.integer(data.predict$effort),
-						fit_interaction = 0L)
+						eff_predict = as.integer(data.predict$effort))
 	)							 
 }
