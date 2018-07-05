@@ -23,10 +23,12 @@ all: install clean
 	Rscript -e "library(devtools); build_vignettes()"
 	
 ./data/*.RData: $(STAN_FILES)
-	Rscript -e "reg01 <- readLines('./stan/regression_year.stan');                      save(reg01, file = './data/reg01.RData')"
-	Rscript -e "reg02 <- readLines('./stan/regression_year_area.stan');                 save(reg02, file = './data/reg02.RData')"
-	Rscript -e "reg03 <- readLines('./stan/regression_year_area_method.stan');          save(reg03, file = './data/reg03.RData')"
-	Rscript -e "reg04 <- readLines('./stan/regression_year_area_method_category.stan'); save(reg04, file = './data/reg04.RData')"
+	Rscript -e "reg01a <- readLines('./stan/regression01_year.stan');                      save(reg01a, file = './data/reg01a.RData')"
+	Rscript -e "reg01b <- readLines('./stan/regression01_year_area.stan');                 save(reg01b, file = './data/reg01b.RData')"
+	Rscript -e "reg01c <- readLines('./stan/regression01_year_area_method.stan');          save(reg01c, file = './data/reg01c.RData')"
+	Rscript -e "reg01d <- readLines('./stan/regression01_year_area_method_category.stan'); save(reg01d, file = './data/reg01d.RData')"
+	Rscript -e "reg02b <- readLines('./stan/regression02_year_area.stan');                 save(reg02b, file = './data/reg02b.RData')"
+	Rscript -e "reg02c <- readLines('./stan/regression02_year_area_method.stan');          save(reg02c, file = './data/reg02c.RData')"
 	
 install: $(PKG_FILES) ./inst/doc/*.html ./data/*.RData
 	Rcmd build --no-build-vignettes .
