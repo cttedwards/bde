@@ -315,8 +315,8 @@ generated quantities {
 	for (i in 1:Y) {
 		for (j in 1:A) {
 					
-			D[1] += pow(pow(pos_sum[i, j], 0.5)     - pow(pos_hat_sum[i, j], 0.5), 2.0);
-			D[2] += pow(pow(pos_sim_sum[i, j], 0.5) - pow(pos_hat_sum[i, j], 0.5), 2.0);
+			D[1] += pow(pos_sum[i, j]    - pos_hat_sum[i, j], 2.0); //pow(pow(pos_sum[i, j], 0.5)     - pow(pos_hat_sum[i, j], 0.5), 2.0);
+			D[2] += pow(pos_sim_sum[i, j]- pos_hat_sum[i, j], 2.0); //pow(pow(pos_sim_sum[i, j], 0.5) - pow(pos_hat_sum[i, j], 0.5), 2.0);
 		}
 	}
 	

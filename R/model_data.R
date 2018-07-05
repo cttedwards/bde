@@ -18,8 +18,10 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
     stopifnot(nrow(data.sample)  == length(X.sample[[1]]))
     stopifnot(nrow(data.predict) == length(X.predict[[1]]))
     
-    for (i in names(X.dims)) {
+    for (i in names(X.dims)[names(X.dims) %in% names(dat.sample)]) {
         if (nlevels(data.sample[,i])  < as.integer(X.dims[[i]])) warning("No data for some model covariates: predicted catch will follow intercept terms")
+    }
+    for (i in names(X.dims)[names(X.dims) %in% names(dat.predict)]) {
         if (nlevels(data.predict[,i]) > as.integer(X.dims[[i]])) stop("Some covariates needed for prediction are not in the design matrix")
     }
 	
@@ -41,7 +43,7 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 	
 	if (area.disjunct & missing(area.sample.to.estimate)) {
 		area.sample.to.estimate <- 1:X.dims['area_sample']
-		warning("using the area disjunct model but sample and estimation areas are the same")
+		warning("you are using the area disjunct model but sample and estimation areas are the same")
 	}
     
 	if ("year" %in% names(X.dims)) {

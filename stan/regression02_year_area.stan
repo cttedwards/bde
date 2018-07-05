@@ -35,8 +35,8 @@ data {
 	int XY_predict[N[2]];
 	int XA_predict[N[2]];
 	
-	// ESTIMATION AREA
-	// TO SAMPLING AREA
+	// SAMPLING AREA
+	// TO ESTIMATION AREA
 	// MAPPING VECTOR
 	int area_to_area[A[1]];
 	
