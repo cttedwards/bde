@@ -13,7 +13,7 @@
 #' @return list containing data for \code{stan} model run. 
 #'
 #' @export
-model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, area.sample.to.estimate) {
+model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, area.sample.to.estimate, verbose = TRUE) {
     
     stopifnot(nrow(data.sample)  == length(X.sample[[1]]))
     stopifnot(nrow(data.predict) == length(X.predict[[1]]))
@@ -41,9 +41,18 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 	}
 	area.conjunct <- !area.disjunct
 	
-	if (area.disjunct & missing(area.sample.to.estimate)) {
-		area.sample.to.estimate <- 1:X.dims['area_sample']
-		warning("you are using the area disjunct model but sample and estimation areas are the same")
+	if (area.disjunct) {
+		if (missing(area.sample.to.estimate)) {
+			area.sample.to.estimate <- 1:X.dims['area_sample']
+			warning("you are using the area disjunct model but sample and estimation areas are the same")
+		} else {
+			stopifnot(length(area.sample.to.estimate) == X.dims['area_sample'])
+		}
+	}
+	
+	if (verbose & area.disjunct) {
+	
+		print(data.frame(area_sample = X.dimnames$area_sample, area_estimate = X.dimnames$area_estimate[area.sample.to.estimate]))
 	}
     
 	if ("year" %in% names(X.dims)) {
