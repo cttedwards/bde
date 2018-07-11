@@ -1,13 +1,12 @@
 // regression of 
-// by-catch data 
+// by-catch and discard 
+// data using a two-part
+// binomial/log-normal model 
 
 // NOTATION
 //
-// N: number of data records
-// A: number of areas
+// N: number of data records (estimation; prediction)
 // Y: number of years
-// P: periods
-// M: meal processing plant
 // X: design matrices
 // gamma: bernoulli regression coefficients
 // beta: log-normal regression coefficients
