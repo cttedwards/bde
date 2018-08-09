@@ -57,21 +57,21 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
     
 	if ("year" %in% names(X.dims)) {
 		ind <- "year"
-			if ("area" %in% names(X.dims) | area.disjunct)
-				ind <- c(ind, "area")
-			if ("method" %in% names(X.dims))
-			    ind <- c(ind, "method")
-			if ("category" %in% names(X.dims))
-			    ind <- c(ind, "category")
+		if ("area" %in% names(X.dims) | area.disjunct)
+			ind <- c(ind, "area")
+		if ("method" %in% names(X.dims))
+			ind <- c(ind, "method")
+		if ("category" %in% names(X.dims))
+			ind <- c(ind, "category")
 	}
 	
 	ind <- paste(ind, collapse = "_")
 	
 	def <- switch(ind, 
-				  "year"                      = "reg01a", 
-				  "year_area"                 = ifelse(area.conjunct, "reg01b", "reg02b"),
-				  "year_area_method"          = ifelse(area.conjunct, "reg01c", "reg02c"),
-				  "year_area_method_category" = ifelse(area.conjunct, "reg01d", "reg02d"))
+			"year"                      = "reg01a", 
+			"year_area"                 = ifelse(area.conjunct, "reg01b", "reg02b"),
+			"year_area_method"          = ifelse(area.conjunct, "reg01c", "reg02c"),
+			"year_area_method_category" = ifelse(area.conjunct, "reg01d", "reg02d"))
 	
 	switch(def,
 			   
@@ -79,9 +79,9 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 						Y = X.dims['year'], 
 						A = X.dims['area'],
 						M = X.dims['method'],
-						V = X.dims['category'],
-						XY_sample  = X.sample[['year']],  XA_sample  = X.sample[['area']],  XM_sample  = X.sample[['method']],  XV_sample  = X.sample[['category']], 
-						XY_predict = X.predict[['year']], XA_predict = X.predict[['area']], XM_predict = X.predict[['method']], XV_predict = X.predict[['category']], 
+						C = X.dims['category'],
+						XY_sample  = X.sample[['year']],  XA_sample  = X.sample[['area']],  XM_sample  = X.sample[['method']],  XC_sample  = X.sample[['category']], 
+						XY_predict = X.predict[['year']], XA_predict = X.predict[['area']], XM_predict = X.predict[['method']], XC_predict = X.predict[['category']], 
 						pos = as.numeric(data.sample$biomass), 
 						bin = as.integer(data.sample$bin), 
 						eff_sample  = as.integer(data.sample$effort), 
@@ -134,6 +134,19 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 						M = X.dims['method'],
 						XY_sample  = X.sample[['year']],  XA_sample  = X.sample[['area_sample']], XA_estimate = X.sample[['area_estimate']], XM_sample  = X.sample[['method']], 
 						XY_predict = X.predict[['year']], XA_predict = X.predict[['area_sample']], XM_predict  = X.predict[['method']], 
+						pos = as.numeric(dat.sample$biomass), 
+						bin = as.integer(dat.sample$bin), 
+						eff_sample  = as.integer(dat.sample$effort), 
+						eff_predict = as.integer(dat.predict$effort),
+						area_to_area = structure(as.integer(area.sample.to.estimate), dim = X.dims['area_sample'])),
+	       
+	       "reg02d" = list(N = c(nrow(dat.sample), nrow(dat.predict)), 
+						Y = as.integer(X.dims['year']), 
+						A = as.integer(c(X.dims['area_sample'], X.dims['area_estimate'])),
+						M = X.dims['method'],
+			       			C = X.dims['category'],
+						XY_sample  = X.sample[['year']],  XA_sample  = X.sample[['area_sample']], XA_estimate = X.sample[['area_estimate']], XM_sample  = X.sample[['method']],  XC_sample  = X.sample[['category']], 
+						XY_predict = X.predict[['year']], XA_predict = X.predict[['area_sample']], XM_predict  = X.predict[['method']],  XC_predict  = X.predict[['category']], 
 						pos = as.numeric(dat.sample$biomass), 
 						bin = as.integer(dat.sample$bin), 
 						eff_sample  = as.integer(dat.sample$effort), 
