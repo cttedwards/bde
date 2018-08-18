@@ -1,4 +1,4 @@
-# Makefile for generating the stanUtils R package
+# Makefile for generating the bde R package
 #
 PKG_VERSION=$(shell grep -i ^version DESCRIPTION | cut -d : -d \  -f 2)
 PKG_NAME=$(shell grep -i ^package DESCRIPTION | cut -d : -d \  -f 2)
