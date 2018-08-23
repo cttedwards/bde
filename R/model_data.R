@@ -51,7 +51,8 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 	}
 	
 	if (verbose & area.disjunct) {
-	
+		
+		message("Print sampling and estimation areas")
 		print(data.frame(area_sample = X.dimnames$area_sample, area_estimate = X.dimnames$area_estimate[area.sample.to.estimate]))
 	}
     
