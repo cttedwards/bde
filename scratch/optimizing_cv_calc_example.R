@@ -40,13 +40,17 @@ optim_sd_mles = sqrt(diag(abs(solve(-(fit1$hessian)))));
 
 ### optimizing function in rstan
 fit2 = optimizing(mystanmodel,hessian=TRUE,data=list(n=n,x=x), init=list(mu=mean(x),sigma=sd(x)), draws = 20000)
-optimizing_mle = fit2$par;
+optimizing_mles = fit2$par;
 optimizing_sd_mles = sqrt(diag(cov(fit2$theta_tilde)))
 
 ### sampling function in rstan
 fit3 = sampling(mystanmodel, init =  list(list(mu = mean(x), sigma = sd(x))), chains = 1, iter = 5000)
 sampling_parhat = summary(fit3)$summary[,"mean"][1:2]
 sampling_sdparhat = summary(fit3)$summary[,"sd"][1:2]
+
+# 95% CIs
+optimzing_par95CI = rbind(optimizing_mles - 1.96 * optimizing_sd_mles, optimizing_mles + 1.96 * optimizing_sd_mles)
+sampling_par95CI  = rbind(summary(fit3)$summary[,"2.5%"][1:2], summary(fit3)$summary[,"97.5%"][1:2])
 
 
 #### all the results
@@ -62,6 +66,8 @@ optimizing_sd_mles
 sampling_sdparhat
 
 
+# check map function
+map(fit2, pars = c("mu", "sigma"), dims = c(0, 0))
 
 
 
