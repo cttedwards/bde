@@ -1,0 +1,33 @@
+---
+title: "Simulation of the sum of log-normally distributed catch rate estimates"
+author: "Charles T T Edwards (NIWA, Wellington, New Zealand)"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    fig_caption: yes
+    toc: no
+vignette: >
+  %\VignetteIndexEntry{lhm}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.path = 'fig/bde-', fig.width = 6, tidy = TRUE, tidy.opts = list(blank = TRUE, width.cutoff = 95), message = FALSE, warning = FALSE, collapse = TRUE, comment = "#>")
+```
+
+```{r}
+library(bde)
+```
+
+# Introduction
+
+Positive catch data per tow can be modelled using a log-normal pdf. For observer record $i$:
+\[
+    x_i \sim LN(\mu, \sigma)
+\]
+where $\mu$ and $\sigma$ are the location and scale parameters for $\ln(X)$. The expected value and variance across observer records are:
+\[
+	E[x_p] = \exp(\mu_p + \sigma^2_p / 2)
+\]
+where the $p$ subscript represents a draw from the posterior distribution.
