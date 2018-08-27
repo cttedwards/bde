@@ -59,9 +59,13 @@ cat(
 
         x_sim_sum = sum(x_sim);
         x_sim_agg = lognormal_rng(mu_log_sum, sigma_log_sum);
+        //The wrong way:
+        //x_sim_agg = lognormal_rng(mu_log + log(n), sigma_log);
 
         x_hat_sum = sum(x_hat);
         x_hat_agg = exp(mu_log_sum + square(sigma_log_sum) / 2);
+        //The wrong way:
+        //x_hat_agg = exp(mu_log + log(n) + square(sigma_log) / 2);
 
         // discrepancy for sum of simulations
         D1[1] = x_sum     - x_hat_sum;
@@ -129,6 +133,15 @@ abline(v = sum(x), h = sum(x), col = 4)
 plot(x_hat_sum, x_sim_agg, xlim = xlims, ylim = ylims, xlab = expression(sum(E(x))), ylab = expression(tilde(z)))
 abline(0, 1, col = 2)
 abline(v = sum(x), h = sum(x), col = 4)
+
+# distribution of simulated values around input data
+windows(); par(mfrow = c(1, 2))
+
+hist(x_sim_sum, probability = TRUE, xlab = expression(sum(tilde(x))), main = "Sum of simulations");
+abline(v = sum(x), col = 2)
+
+hist(x_sim_agg, probability = TRUE, xlab = expression(tilde(z)), main = "Simulation of sums");
+abline(v = sum(x), col = 2)
 
 # discrepancy values
 windows(); par(mfrow = c(1, 2))
