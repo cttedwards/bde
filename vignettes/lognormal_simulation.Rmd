@@ -4,10 +4,9 @@ author: "Charles T T Edwards (NIWA, Wellington, New Zealand)"
 date: "`r Sys.Date()`"
 output:
   rmarkdown::html_vignette:
-    fig_caption: yes
     toc: no
 vignette: >
-  %\VignetteIndexEntry{lhm}
+  %\VignetteIndexEntry{bde}
   %\VignetteEngine{knitr::rmarkdown}
   \usepackage[utf8]{inputenc}
 ---
@@ -17,17 +16,253 @@ knitr::opts_chunk$set(fig.path = 'fig/bde-', fig.width = 6, tidy = TRUE, tidy.op
 ```
 
 ```{r}
-library(bde)
+# libraries
+library(ggplot2)
+library(rstan)
 ```
-
-# Introduction
 
 Positive catch data per tow can be modelled using a log-normal pdf. For observer record $i$:
 \[
-    x_i \sim LN(\mu, \sigma)
+    X_i \sim LN(\mu, \sigma)
 \]
 where $\mu$ and $\sigma$ are the location and scale parameters for $\ln(X)$. The expected value and variance across observer records are:
 \[
-	E[x_p] = \exp(\mu_p + \sigma^2_p / 2)
+	E[X] = \exp(\mu + \sigma^2 / 2)
 \]
-where the $p$ subscript represents a draw from the posterior distribution.
+\[
+    VAR[X] = \left(\exp\left(\sigma^2\right)-1\right)\cdot\exp\left(2\cdot \mu + \sigma^2\right)
+\]
+
+Although we fit to tow-by-tow observer data to estimate $\mu$ and $\sigma$, we are interested in predicting the catch for aggregated effort data (i.e. not tow-by-tow). Specifically, for effort level $n$, we are required to predict the random variable:
+\[
+    Z = X_1 + X_2 + \dots + X_n 
+\]
+where each $X_i$ follows the log-normal distribution as defined above. Unfortunately the sum of log-normals does not follow a well defined probability distribution, although various approximations exist. The most common assumption is to assume that $Z$ also follows a log-normal distribution. If $X_i$ are i.i.d., then a good approximation for the first two moments is:
+\[
+    \mu_{Z} = \ln\left(n \cdot \exp(\mu)\right) + \sigma^2 / 2 - \sigma^2_{Z} / 2
+\]
+\[
+    \sigma^2_{Z} = \ln\left((\exp\left(\sigma^2\right) - 1)\cdot \frac{1}{n} + 1\right)
+\]
+which is known as the Fenton-Wilkinson method, and gives the familiar expectation:
+\[
+    E[Z] = \exp\left(\mu_z + \sigma^2_Z / 2\right) = \exp\left(\mu + \ln(n) + \sigma^2 / 2\right) 
+\]
+
+We can perform a simple exercise to validate this approximation for various values of $\sigma$, demonstrating that simulated values of $Z$ and $\sum{X_i}$ are similar.
+
+```{r, fig.width=3}
+iter   <- 1e3
+n      <- 200
+mu     <- 2
+sigma  <- c(0.1, 0.5, 1.0, 1.5)
+sigma2 <- sigma^2
+
+for (i in 1:length(sigma)) {
+    
+    log_x_sum <- numeric(iter)
+    log_z     <- numeric(iter)
+    
+    sigma_z <- sqrt(log((exp(sigma2[i]) - 1) / n + 1))
+    mu_z    <- log(n * exp(mu)) + sigma2[i] / 2 - sigma_z^2 / 2
+    
+    # distribution of simulated values
+    for (j in 1:iter) {
+            log_x_sum[j] <- log(sum(rlnorm(n, mu, sigma[i])))
+            log_z[j]     <- log(rlnorm(1, mu_z, sigma_z))
+    }
+
+    xlims <- range(log_x_sum, log_z)
+    hist(log_x_sum, probability = TRUE, main = paste("sigma =", sigma[i]), xlim = xlims)
+    curve(dnorm(x, mean(log_x_sum), sd(log_x_sum)), 
+          col = 2, lwd = 2, add = TRUE, from = min(xlims), to = max(xlims))
+    hist(log_z, probability = TRUE, main = paste("sigma_z =", round(sigma_z, 2)), xlim = xlims)
+    curve(dnorm(x, mean(log_z), sd(log_z)), 
+          col = 2, lwd = 2, add = TRUE, from = min(xlims), to = max(xlims))
+}
+
+```
+
+To illustrate how this approach is used for posterior predictive simulation of the observed data, we construct a simple example.
+
+First we define a model that can estimate the parameters $\mu$ and $\sigma$ from log-normal data. Assuming $n$ samples generated from known values:
+\[
+    X_i \sim LN(\mu, \sigma)
+\]
+we are required to estiamte $\hat{\mu}$ and $\hat{\sigma}$, and then use these estimates to generate values for $Z = \sum_n{X_i}$ using posterior predictive simulation.
+
+```{r, results='hide'}
+mdl <- 
+        "functions {
+            
+            real calc_sigma_z(real mu, real sigma, int n) {
+            
+                return sqrt(log((exp(square(sigma)) - 1) / n + 1));
+            }
+            
+            real calc_mu_z(real mu, real sigma, int n) {
+            
+                real sigma_z = calc_sigma_z(mu, sigma, n);
+            
+                return log(n * exp(mu)) + square(sigma) / 2 - square(sigma_z) / 2;
+            }
+        }
+        data{
+            int<lower=1> n;
+            vector[n] x;
+        }
+        transformed data {
+            
+            real x_sum = sum(x);
+        }
+        parameters{
+            real mu;
+            real<lower=0> sigma;
+        }
+        model{
+            x ~ lognormal(mu, sigma);
+        }
+        generated quantities {
+            
+            vector[n] x_sim;
+            vector[n] x_hat;
+            
+            real x_sim_sum;
+            real x_sim_agg;
+            
+            real x_hat_sum;
+            real x_hat_agg;
+            
+            real sigma_z = calc_sigma_z(mu, sigma, n);
+            real mu_z    = calc_mu_z(mu, sigma, n);
+            
+            real D1[2] = { 0.0, 0.0 };
+            real D2[2] = { 0.0, 0.0 };
+            
+            // expected and simulated values per record
+            for (i in 1:n) {
+                x_hat[i] = exp(mu + square(sigma) / 2);
+                x_sim[i] = lognormal_rng(mu, sigma);
+            }
+            
+            // sum expected and simulated values per record
+            x_hat_sum = sum(x_hat);
+            x_sim_sum = sum(x_sim);
+            
+            // expected and simulated values for summed data
+            x_hat_agg = exp(mu_z + square(sigma_z) / 2);
+            x_sim_agg = lognormal_rng(mu_z, sigma_z);
+            
+            // discrepancy for sum of simulations
+            D1[1] = x_sum     - x_hat_sum;
+            D1[2] = x_sim_sum - x_hat_sum;
+            
+            // discrepancy for simulation of sums
+            D2[1] = x_sum     - x_hat_agg;
+            D2[2] = x_sim_agg - x_hat_agg;
+        
+        }
+        \n"	
+
+cat(mdl, file = "modelLogNormal.stan")
+
+mdl <- stan_model("modelLogNormal.stan")
+
+# generate data
+set.seed(100)
+n     = 200
+mu    = 2.0
+sigma = 1
+x     = rlnorm(n, mu, sigma)
+
+# fit model
+mdl.fit <- sampling(mdl, init =  function() list(mu = mu, sigma = sigma), chains = 1, iter = 1000)
+```
+
+We first compare the model estimated values with the input parameter values used to simulate the data, and find them to be similar:
+```{r}
+# compare model estimates with data
+mean(log(x)); summary(mdl.fit)$summary["mu", "mean"]
+sd(log(x));   summary(mdl.fit)$summary["sigma", "mean"]
+```
+
+The distribution of $E[X]$ and $SD[X]$ also matches the input data:
+```{r}
+# compare simulated values with data
+x_sim <- extract(mdl.fit, "x_sim")[[1]]
+
+x_sim_mean <- apply(x_sim, 1, mean)
+x_sim_sd   <- apply(x_sim, 1, sd)
+```
+
+```{r,echo=FALSE, fig.width=3}
+# distribution of mean and sd values from simulated data
+hist(x_sim_mean, probability = TRUE, main = expression(paste("Estimation of ", mu)), xlab = expression(hat(mu)))
+abline(v = mean(x), col = 2)
+hist(x_sim_sd, probability = TRUE, main = expression(paste("Estimation of ", sigma)), xlab = expression(hat(sigma)))
+abline(v = sd(x), col = 2)
+```
+
+Next we validate our ability to simulate $Z = \sum{X_i}$, using the notation $\tilde{z}$ and $\tilde{x}$ to represent model predicted values.
+```{r, fig.width=3}
+# distribution of summed values
+x_sim_sum <- extract(mdl.fit, "x_sim_sum")[[1]]
+x_sim_agg <- extract(mdl.fit, "x_sim_agg")[[1]]
+
+x_hat_sum <- extract(mdl.fit, "x_hat_sum")[[1]]
+x_hat_agg <- extract(mdl.fit, "x_hat_agg")[[1]]
+```
+
+```{r, echo=FALSE, results='hide', fig.width=3}
+xlims <- range(x_sim_sum, x_sim_agg, x_hat_sum, x_hat_agg)
+ylims <- range(x_sim_sum, x_sim_agg, x_hat_sum, x_hat_agg)
+
+plot(x_hat_agg, x_sim_sum, xlim = xlims, ylim = ylims, xlab = expression(paste(E(sum(x)), "=", E(z))), ylab = expression(sum(tilde(x))))
+abline(0, 1, col = 2)
+abline(v = sum(x), h = sum(x), col = 4)
+
+plot(x_hat_agg, x_sim_agg, xlim = xlims, ylim = ylims, xlab = expression(paste(E(sum(x)), "=", E(z))), ylab = expression(tilde(z)))
+abline(0, 1, col = 2)
+abline(v = sum(x), h = sum(x), col = 4)
+
+plot(x_hat_sum, x_sim_sum, xlim = xlims, ylim = ylims, xlab = expression(sum(E(x))), ylab = expression(sum(tilde(x))))
+abline(0, 1, col = 2)
+abline(v = sum(x), h = sum(x), col = 4)
+
+plot(x_hat_sum, x_sim_agg, xlim = xlims, ylim = ylims, xlab = expression(sum(E(x))), ylab = expression(tilde(z)))
+abline(0, 1, col = 2)
+abline(v = sum(x), h = sum(x), col = 4)
+```
+
+```{r, echo = FALSE, fig.cap="Distribution of simulated values around input data", fig.width=3}
+xlims <- range(x_sim_sum, x_sim_agg)
+
+hist(x_sim_sum, xlim = xlims, probability = TRUE, xlab = expression(sum(tilde(x))), main = "Sum of simulations");
+abline(v = sum(x), col = 2)
+
+hist(x_sim_agg, xlim = xlims, probability = TRUE, xlab = expression(tilde(z)), main = "Simulation of sums");
+abline(v = sum(x), col = 2)
+```
+
+Finally, model performance is checked using the discrepancy statistics: $T(\tilde{z},p) = \tilde{z}_p - \hat{z}_p$ and $T(z,p) = z - \hat{z}_p$; which represent the residual values of the observed and simulated data around the estimated expectation. Posterior predictive p-values are also shown, which should be close to 0.5 if the model is performing well.
+
+```{r, echo=FALSE,results='hide',fig.width=3}
+D1 <- extract(mdl.fit, "D1")[[1]]
+D2 <- extract(mdl.fit, "D2")[[1]]
+
+xlims <- range(D1, D2)
+ylims <- range(D1, D2)
+
+plot(D1[,1], D1[,2], xlim = xlims, ylim = ylims, xlab = expression(sum(x) - sum(E(x))), ylab = expression(sum(tilde(x)) - sum(E(x)))); mtext("Sum of simulations\n")
+abline(0, 1, col = 2)
+legend("bottomright", paste("p = ", mean(D1[,1] > D1[,2])), bty = "n")
+plot(D2[,1], D2[,2], xlim = xlims, ylim = ylims, xlab = expression(z - E(z)), ylab = expression(tilde(z) - E(z))); mtext("Simulation of sums\n")
+abline(0, 1, col = 2)
+legend("bottomright", paste("p = ", mean(D2[,1] > D2[,2])), bty = "n")
+```
+
+```{r, echo = FALSE,results='hide'}
+# clean up
+file.remove("modelLogNormal.stan")
+```
+

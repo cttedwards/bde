@@ -1,0 +1,225 @@
+---
+title: "Example prediction of estimated catch from simulated observer data"
+author: "Charles Edwards"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    toc: no
+vignette: >
+  %\VignetteIndexEntry{bde}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.path = 'fig/bde-', fig.width = 6, tidy = TRUE, tidy.opts = list(blank = TRUE, width.cutoff = 105), message = FALSE, warning = FALSE, collapse = TRUE, comment = "#>")
+
+```
+
+```{r}
+library(bde)
+library(plyr)
+library(reshape2)
+```
+
+```{r}
+# data simulation
+
+# dimensions
+nyears  <- 20
+ngrids  <- 10
+nfleets <- 1
+
+# grid names
+grids <- paste0("G", 1:ngrids)
+
+# annual commercial effort per fleet
+effort <- matrix(200, nrow = nyears, ncol = nfleets)
+
+# observer sampling ratio per fleet
+sample_ratio <- matrix(0.3, nrow = nyears, ncol = nfleets)
+
+# PARAMETERS
+mu    <- rgamma(sum(ngrids), shape = 10, scale = 0.2) #2.0
+theta <- 1 - exp(-0.5 * mu) #0.6
+sigma <- 0.5
+
+# SIMULATE DATA
+dat <- data.frame(grid    = character(),
+                  year    = numeric(),
+                  effort  = numeric(), 
+                  bin     = numeric(), 
+                  catch   = numeric(),
+                  theta   = numeric(),
+                  mu      = numeric(),
+                  sigma   = numeric())
+
+for (i in 1:nyears) {
+    
+    for (j in 1:nfleets) {
+    
+        effort_per_grid <- rmultinom(1, effort[i,j], prob = mu / sum(mu))[,1]
+        
+        for (k in 1:sum(ngrids)) {
+    
+            dat <- rbind(dat, data.frame(year      = ifelse(i < 10, paste0("0", as.character(i)), as.character(i)),
+                                         grid      = grids[k], 
+                                         effort    = rep(1, effort_per_grid[k]), 
+                                         sampled   = runif(effort_per_grid[k]) < sample_ratio[i, j],
+                                         bin       = rbinom(effort_per_grid[k], 1, theta[k]), 
+                                         catch     = rlnorm(effort_per_grid[k], log(mu[k]), sigma),
+                                         theta     = theta[k],
+                                         mu        = mu[k],
+                                         sigma     = sigma))
+        }
+    }
+}
+
+dat[!dat[, 'bin'], 'catch'] <- 0
+```
+
+```{r, echo = FALSE}
+gg <- ggplot(dat) + geom_histogram(aes(x = catch, y = ..density..)) + theme_bw() + ggtitle("Semi-continuous catch data")
+print(gg)
+```
+
+```{r, results = 'hide'}
+# compile model
+mdl <- stan_model(file = 'year.stan')
+```
+
+```{r, results = 'hide'}
+# coerce observer data
+dat.sample <- data_prep(subset(dat, sampled), 
+                        var.names   = list(from = c('catch', 'bin'), to = c('biomass', 'bin')), 
+                        cofac.names = list(from = 'year', to = 'year'), 
+                        covar.names = list(from = 'effort', to = 'effort'))
+
+
+# coerce commercial effort data
+dat.predict <- data_prep(dat, 
+                         var.names   = NULL,
+                         cofac.names = list(from = 'year', to = 'year'),
+                         covar.names = list(from = 'effort', to = 'effort'))
+
+# make dimensions and labels
+X.dims     <- data_dims(dat.sample, dat.predict)
+X.dimnames <- data_dims(dat.sample, dat.predict, dimnames = TRUE)
+
+# make design matrices
+X.sample  <- data_design_matrix(dat.sample,  X.dims, X.dimnames)
+X.predict <- data_design_matrix(dat.predict, X.dims, X.dimnames)
+
+# create input data list
+mdl.dat <- model_data(dat.sample, dat.predict, X.dims, X.sample, X.predict)
+
+# create initial values
+mdl.ini <- map(optimizing(mdl, mdl.dat, iter = 500), 
+               pars = c("gamma0", "gammaY", "beta0", "betaY"), 
+               dims = list(0, X.dims['year'], 0, X.dims['year']))
+
+mdl.ini$sigma <- rep(1, X.dims['year'])
+
+mdl.fit <- sampling(mdl, mdl.dat, init = function() mdl.ini, chains = 1)
+
+nit <- 1000
+```
+
+```{r, echo = FALSE}
+gg <- traceplot(mdl.fit, pars = c("gamma_summary", "beta_summary", "error_summary")) + 
+        ggtitle("Parameter summary statistics") +
+        theme_bw(base_size = 16)
+print(gg)
+```
+
+```{r}
+# save results
+res <- posterior(mdl.fit, pars = "predicted_catch", dim.names = list(iter = 1:nit, year = X.dimnames$year))
+```
+
+```{r}    
+# sum empirical observations by year
+dfr <- ddply(dat.sample, .(year), summarize, 
+             bin_sum = sum(bin),
+             pos_sum = sum(biomass))
+
+# extract simulated and expected observer sample values 
+dfs <- posterior(mdl.fit, 
+                 pars = c("bin_sim_sum", "bin_hat_sum", "bin_sim_agg", "pos_sim_sum", "pos_hat_sum", "pos_sim_agg"), 
+                 dim.names = list(iter = 1:nit, year = X.dimnames$year), 
+                 melt = TRUE, 
+                 fun = "median")
+
+for (i in 1:length(dfs)) {
+    
+    colnames(dfs[[i]])[2] <- names(dfs)[i]
+    
+    dfr <- merge(dfr, dfs[[i]])    
+}
+
+diagnostics <- dfr
+
+# discrepancy measures
+discrepancy <- list()
+
+emp <- extract(mdl.fit, pars = "DBN")[[1]][,1]
+sim <- extract(mdl.fit, pars = "DBN")[[1]][,2]
+
+discrepancy[["BN"]] <- data.frame(iter = 1:nit, observed = emp, simulated = sim)
+
+emp <- extract(mdl.fit, pars = "DLN")[[1]][,1]
+sim <- extract(mdl.fit, pars = "DLN")[[1]][,2]
+
+discrepancy[["LN"]] <- data.frame(iter = 1:nit, observed = emp, simulated = sim)
+```
+
+```{r, echo = FALSE}
+plot(bin_hat_sum ~ bin_sum, diagnostics, xlab = "Observed", ylab = "Expected"); mtext("Binomial model\n", adj = 0)
+abline(0, 1, lwd = 2, col = 2)
+    
+plot(bin_sim_sum ~ bin_sum, diagnostics, xlab = "Observed", ylab = "Simulated");
+points(bin_sim_agg ~ bin_sum, diagnostics, col = 4)
+abline(0, 1, lwd = 2, col = 2)
+
+#plot(bin_sim_sum ~ bin_hat_sum, diagnostics, xlab = "Expected", ylab = "Simulated")
+#points(bin_sim_agg ~ bin_hat_sum, diagnostics, col = 4)
+#abline(0, 1, lwd = 2, col = 2)
+legend("topleft", col = c(1, 4), pch = 21, legend = c("Simulation by record", "Aggregate simulation"), bty = "n")
+        
+lims <- range(discrepancy[["BN"]][,2:3])
+plot(simulated ~ observed, discrepancy[["BN"]], xlim = lims, ylim = lims, xlab = "Observed vs. Expected", ylab = "Simulated vs. Expected")
+abline(0, 1, lwd = 2, col = 2)
+
+plot(log(pos_hat_sum) ~ log(pos_sum), diagnostics, xlab = "Observed", ylab = "Expected"); mtext("log-Normal model\n", adj = 0)
+abline(0, 1, lwd = 2, col = 2)
+
+plot(log(pos_sim_sum) ~ log(pos_sum), diagnostics, xlab = "Observed", ylab = "Simulated")
+points(log(pos_sim_agg) ~ log(pos_sum), diagnostics, col = 4)
+abline(0, 1, lwd = 2, col = 2)
+
+#plot(log(pos_sim_sum) ~ log(pos_hat_sum), diagnostics, xlab = "Expected", ylab = "Simulated")
+#points(log(pos_sim_agg) ~ log(pos_hat_sum), diagnostics, col = 4)
+#abline(0, 1, lwd = 2, col = 2)
+legend("topleft", col = c(1, 4), pch = 21, legend = c("Simulation by record", "Aggregate simulation"), bty = "n")
+
+lims <- range(discrepancy[["LN"]][,2:3])
+plot(simulated ~ observed, discrepancy[["LN"]], xlim = lims, ylim = lims, xlab = "Observed vs. Expected", ylab = "Simulated vs. Expected")
+abline(0, 1, lwd = 2, col = 2)
+
+```
+
+```{r, echo = FALSE}
+res <- res / 1e6
+gg <- ggplot(melt(res), aes(year, value)) + 
+        stat_summary(fun.data = function(x) data.frame(ymin = quantile(x, 0.05), ymax = quantile(x, 0.95)), geom = "ribbon", alpha = 0.4) +
+        stat_summary(fun.data = function(x) data.frame(y = median(x)), geom = "line", size = 2) +
+        labs(x = "Year", y = "Incidental catch (thousand tonnes)") +
+        theme_bw(base_size = 20)
+print(gg)
+
+```
+
+
+
+
+

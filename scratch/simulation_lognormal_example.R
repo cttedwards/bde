@@ -9,7 +9,7 @@ cat(
 
         real sigma_lnsum(real mu_log, real sigma_log, int n) {
 
-            return sqrt(log((exp(square(sigma_log)) - 1) / square(n) + 1));
+            return sqrt(log((exp(square(sigma_log)) - 1) / n + 1));
         }
 
         real mu_lnsum(real mu_log, real sigma_log, int n) {
@@ -31,7 +31,7 @@ cat(
 	parameters{
 		real mu_log;
 		real<lower=0> sigma_log;
-		}	
+	}	
 	model{
 		x ~ lognormal(mu_log, sigma_log);
 	}
@@ -86,7 +86,7 @@ mystanmodel = stan_model("modelLogNormal.stan")
 set.seed(100)
 n = 200
 mu_log = 2.0
-sd_log = 0.2
+sd_log = 1
 x = rlnorm(n, mu_log, sd_log)
 
 ### sampling function in rstan
