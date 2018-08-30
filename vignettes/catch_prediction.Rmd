@@ -134,7 +134,7 @@ print(gg)
 
 ```{r}
 # save results
-res <- posterior(mdl.fit, pars = "predicted_catch", dim.names = list(iter = 1:nit, year = X.dimnames$year))
+res <- posterior(mdl.fit, pars = "predicted_catch", dim.names = list(iter = 1:nit, year = X.dimnames$year), melt = TRUE)[[1]]
 ```
 
 ```{r}    
@@ -152,9 +152,9 @@ dfs <- posterior(mdl.fit,
 
 for (i in 1:length(dfs)) {
     
-    colnames(dfs[[i]])[2] <- names(dfs)[i]
+    colnames(dfs[[i]])[1] <- names(dfs)[i]
     
-    dfr <- merge(dfr, dfs[[i]])    
+    dfr <- merge(dfr, cbind(year = rownames(dfs[[i]]), dfs[[i]]))  
 }
 
 diagnostics <- dfr
@@ -209,11 +209,10 @@ abline(0, 1, lwd = 2, col = 2)
 ```
 
 ```{r, echo = FALSE}
-res <- res / 1e6
-gg <- ggplot(melt(res), aes(year, value)) + 
+gg <- ggplot(res, aes(year, value)) + 
         stat_summary(fun.data = function(x) data.frame(ymin = quantile(x, 0.05), ymax = quantile(x, 0.95)), geom = "ribbon", alpha = 0.4) +
         stat_summary(fun.data = function(x) data.frame(y = median(x)), geom = "line", size = 2) +
-        labs(x = "Year", y = "Incidental catch (thousand tonnes)") +
+        labs(x = "Year", y = "Incidental catch\n(thousand tonnes)") +
         theme_bw(base_size = 20)
 print(gg)
 

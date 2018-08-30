@@ -27,7 +27,7 @@ functions {
 	
 		real sigma_z = calc_sigma_z(mu, sigma, n);
 	
-		return log(n * exp(mu)) + square(sigma) / 2 - square(sigma_z) / 2;
+		return log(n) + mu + square(sigma) / 2 - square(sigma_z) / 2;
 	}
 	
 	real vector_norm(vector x) {
@@ -302,8 +302,8 @@ generated quantities {
 		
 			sigma_z = calc_sigma_z(mu_log, sigma[i], bin_sim_agg[i]);
 			mu_z    = calc_mu_z(mu_log, sigma[i], bin_sim_agg[i]);
-			print(mu_z);
-			//pos_sim_agg[i] = lognormal_rng(mu_z, sigma_z);
+			//print(mu_z);
+			pos_sim_agg[i] = lognormal_rng(mu_z, sigma_z);
 		}				
 	}
 	
@@ -322,7 +322,7 @@ generated quantities {
 			sigma_z = calc_sigma_z(mu_log, sigma[i], bin_sim_obs[i]);
 			mu_z    = calc_mu_z(mu_log, sigma[i], bin_sim_obs[i]);
 			
-			//pos_sim_obs[i] = lognormal_rng(mu_z, sigma_z);
+			pos_sim_obs[i] = lognormal_rng(mu_z, sigma_z);
 		}
 			
 		bin_sim_com[i] = binomial_rng(eff_resid_sum[i], inv_logit(theta_logit));
@@ -332,7 +332,7 @@ generated quantities {
 			sigma_z = calc_sigma_z(mu_log, sigma[i], bin_sim_com[i]);
 			mu_z    = calc_mu_z(mu_log, sigma[i], bin_sim_com[i]);
 			
-			//pos_sim_com[i] = lognormal_rng(mu_z, sigma_z);
+			pos_sim_com[i] = lognormal_rng(mu_z, sigma_z);
 		}			
 	}
 	
