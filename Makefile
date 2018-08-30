@@ -37,7 +37,6 @@ install: $(PKG_FILES) ./inst/doc/*.html ./data/*.RData
 	
 DESCRIPTION NAMESPACE: $(R_FILES)
 	Rscript version_update.R
-	Rscript -e "library(devtools); document()"	
 
 clean:
 	$(RM) $(PKG_NAME)_*.zip

@@ -14,7 +14,7 @@ writeLines(DESCRIPTION, 'DESCRIPTION')
 rm(DESCRIPTION)
 
 # document package
-# roxygen2::roxygenise(".")
+roxygen2::roxygenise(".")
 
 # Write .onAttach
 filename <- "R/zzz.R"
