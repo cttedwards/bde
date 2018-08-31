@@ -85,6 +85,7 @@ print(gg)
 
 ```{r, results = 'hide'}
 # compile model
+model_code("year")
 mdl <- stan_model(file = 'year.stan')
 ```
 
