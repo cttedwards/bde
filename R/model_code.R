@@ -10,21 +10,24 @@
 #' @return text file with \code{*.stan} suffix 
 #'
 #' @export
-model_code <- function(id, path = ".", area.conjunct = TRUE) {
+model_code <- function(covariates = c("year", "area"), path = ".", area.conjunct = TRUE, interaction = TRUE) {
    	
-	if (missing(id)) 
-		stop("supply one of: id = 'year' or 'year_area' or 'year_area_method' or 'year_area_method_category'")
-		
+	if (missing(covariates)) {
+		message("loading year:area model")
+	}
+
+	id <- paste(covariates, collapse = "_")
+	
 	def <- switch(id, 
-				  "year"                      = "year",
-				  "year_area"                 = "year_area",
-				  "year_area_method"          = "year_area_method",
-				  "year_area_method_category" = "year_area_method_category",
-				  "bycatch_HHL"               = "year_area_method")
+				  "year"                      = "Y000_00",
+				  "year_area"                 = ifelse(interaction, ifelse(area.conjunct, "YA00_0I", "YA00_DI"), ifelse(area.conjunct, "YA00_00", "YA00_D0")),
+				  "year_area_method"          = ifelse(interaction, ifelse(area.conjunct, "YAM0_0I", "YAM0_DI"), ifelse(area.conjunct, "YAM0_00", "YAM0_D0")),
+				  "year_area_method_category" = ifelse(interaction, ifelse(area.conjunct, "YAMC_0I", "YAMC_DI"), ifelse(area.conjunct, "YAMC_00", "YAMC_D0")),
+				  stop("model not found"))
 				  
 	if (def == "year" & !area.conjunct) {
 		
-		warning("for 'year' model area.conjunct argument is ignored")
+		warning("for 'year' model area.conjunct argument ignored")
 		
 		area.conjunct <- TRUE
 	}
@@ -32,22 +35,24 @@ model_code <- function(id, path = ".", area.conjunct = TRUE) {
 	output.filename <- paste0(path, "/", id, ".stan")
 	
 	if (area.conjunct) {
-	
 		message(paste("writing", def, "model to", path, "assuming observer sampling and estimation areas are the same"))
-	
-		switch(def,
-			 "year"                      = { data("reg01a", package = "bde", envir = environment()); writeLines(reg01a, con = output.filename) },
-			 "year_area"                 = { data("reg01b", package = "bde", envir = environment()); writeLines(reg01b, con = output.filename) },
-			 "year_area_method"          = { data("reg01c", package = "bde", envir = environment()); writeLines(reg01c, con = output.filename) },
-			 "year_area_method_category" = { data("reg01d", package = "bde", envir = environment()); writeLines(reg01d, con = output.filename) })
-		 
 	} else {
-	
 		message(paste("writing", def, "model to", path, "assuming observer sampling and estimation areas are different"))
-	
-		switch(def,
-			 "year_area"                 = { data("reg02b", package = "bde", envir = environment()); writeLines(reg02b, con = output.filename) },
-			 "year_area_method"          = { data("reg02c", package = "bde", envir = environment()); writeLines(reg02c, con = output.filename) })
 	}
-    
+	
+	switch(def,
+		 "Y000_00"                      = { data("reg_Y000_00", package = "bde", envir = environment()); writeLines(reg_Y000_00, con = output.filename) },
+		 "YA00_00"                      = { data("reg_YA00_00", package = "bde", envir = environment()); writeLines(reg_YA00_00, con = output.filename) },
+		 "YA00_0I"                      = { data("reg_YA00_0I", package = "bde", envir = environment()); writeLines(reg_YA00_0I, con = output.filename) },
+		 "YA00_D0"                      = { data("reg_YA00_D0", package = "bde", envir = environment()); writeLines(reg_YA00_D0, con = output.filename) },
+		 "YA00_DI"                      = { data("reg_YA00_DI", package = "bde", envir = environment()); writeLines(reg_YA00_DI, con = output.filename) },
+		 "YAM0_00"                      = { data("reg_YAM0_00", package = "bde", envir = environment()); writeLines(reg_YAM0_00, con = output.filename) },
+		 "YAM0_0I"                      = { data("reg_YAM0_0I", package = "bde", envir = environment()); writeLines(reg_YAM0_0I, con = output.filename) },
+		 "YAM0_D0"                      = { data("reg_YAM0_D0", package = "bde", envir = environment()); writeLines(reg_YAM0_D0, con = output.filename) },
+		 "YAM0_DI"                      = { data("reg_YAM0_DI", package = "bde", envir = environment()); writeLines(reg_YAM0_DI, con = output.filename) },
+		 "YAMC_00"                      = { data("reg_YAMC_00", package = "bde", envir = environment()); writeLines(reg_YAMC_00, con = output.filename) },
+		 "YAMC_0I"                      = { data("reg_YAMC_0I", package = "bde", envir = environment()); writeLines(reg_YAMC_0I, con = output.filename) },
+		 "YAMC_D0"                      = { data("reg_YAMC_D0", package = "bde", envir = environment()); writeLines(reg_YAMC_D0, con = output.filename) },
+		 "YAMC_DI"                      = { data("reg_YAMC_DI", package = "bde", envir = environment()); writeLines(reg_YAMC_DI, con = output.filename) })
+		     
 }

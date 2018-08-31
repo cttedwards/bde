@@ -69,14 +69,14 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 	ind <- paste(ind, collapse = "_")
 	
 	def <- switch(ind, 
-			"year"                      = "reg01a", 
-			"year_area"                 = ifelse(area.conjunct, "reg01b", "reg02b"),
-			"year_area_method"          = ifelse(area.conjunct, "reg01c", "reg02c"),
-			"year_area_method_category" = ifelse(area.conjunct, "reg01d", "reg02d"))
+			"year"                      = "Y000_0", 
+			"year_area"                 = ifelse(area.conjunct, "YA00_0", "YA00_D"),
+			"year_area_method"          = ifelse(area.conjunct, "YAM0_0", "YAM0_D"),
+			"year_area_method_category" = ifelse(area.conjunct, "YAMC_0", "YAMC_D"))
 	
 	switch(def,
 			   
-		"reg01d" = list(N = c(nrow(data.sample), nrow(data.predict)), 
+		"YAMC_0" = list(N = c(nrow(data.sample), nrow(data.predict)), 
 						Y = X.dims['year'], 
 						A = X.dims['area'],
 						M = X.dims['method'],
@@ -88,7 +88,7 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 						eff_sample  = as.integer(data.sample$effort), 
 						eff_predict = as.integer(data.predict$effort)),
 			   
-		"reg01c" = list(N = c(nrow(data.sample), nrow(data.predict)), 
+		"YAM0_0" = list(N = c(nrow(data.sample), nrow(data.predict)), 
 						Y = X.dims['year'], 
 						A = X.dims['area'],
 						M = X.dims['method'],
@@ -99,7 +99,7 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 						eff_sample  = as.integer(data.sample$effort), 
 						eff_predict = as.integer(data.predict$effort)),
 
-		"reg01b" = list(N = c(nrow(data.sample), nrow(data.predict)), 
+		"YA00_0" = list(N = c(nrow(data.sample), nrow(data.predict)), 
 						Y = X.dims['year'], 
 						A = X.dims['area'],
 						XY_sample  = X.sample[['year']],  XA_sample  = X.sample[['area']], 
@@ -109,7 +109,7 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 						eff_sample  = as.integer(data.sample$effort), 
 						eff_predict = as.integer(data.predict$effort)),
 								 
-		"reg01a" = list(N = c(nrow(data.sample), nrow(data.predict)), 
+		"Y000_0" = list(N = c(nrow(data.sample), nrow(data.predict)), 
 						Y = X.dims['year'], 
 						XY_sample  = X.sample[['year']], 
 						XY_predict = X.predict[['year']], 
@@ -118,7 +118,7 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 						eff_sample  = as.integer(data.sample$effort), 
 						eff_predict = as.integer(data.predict$effort)),
 	
-		"reg02b" = list(N = c(nrow(dat.sample), nrow(dat.predict)), 
+		"YA00_D" = list(N = c(nrow(dat.sample), nrow(dat.predict)), 
 						Y = as.integer(X.dims['year']), 
 						A = as.integer(c(X.dims['area_sample'], X.dims['area_estimate'])),
 						XY_sample  = X.sample[['year']],  XA_sample  = X.sample[['area_sample']], XA_estimate = X.sample[['area_estimate']], 
@@ -129,7 +129,7 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 						eff_predict = as.integer(dat.predict$effort),
 						area_to_area = structure(as.integer(area.sample.to.estimate), dim = X.dims['area_sample'])),
 						
-		"reg02c" = list(N = c(nrow(dat.sample), nrow(dat.predict)), 
+		"YAM0_D" = list(N = c(nrow(dat.sample), nrow(dat.predict)), 
 						Y = as.integer(X.dims['year']), 
 						A = as.integer(c(X.dims['area_sample'], X.dims['area_estimate'])),
 						M = X.dims['method'],
@@ -141,18 +141,19 @@ model_data <- function(data.sample, data.predict, X.dims, X.sample, X.predict, a
 						eff_predict = as.integer(dat.predict$effort),
 						area_to_area = structure(as.integer(area.sample.to.estimate), dim = X.dims['area_sample'])),
 	       
-	       "reg02d" = list(N = c(nrow(dat.sample), nrow(dat.predict)), 
-						Y = as.integer(X.dims['year']), 
-						A = as.integer(c(X.dims['area_sample'], X.dims['area_estimate'])),
-						M = X.dims['method'],
-			       			C = X.dims['category'],
-						XY_sample  = X.sample[['year']],  XA_sample  = X.sample[['area_sample']], XA_estimate = X.sample[['area_estimate']], XM_sample  = X.sample[['method']],  XC_sample  = X.sample[['category']], 
-						XY_predict = X.predict[['year']], XA_predict = X.predict[['area_sample']], XM_predict  = X.predict[['method']],  XC_predict  = X.predict[['category']], 
-						pos = as.numeric(dat.sample$biomass), 
-						bin = as.integer(dat.sample$bin), 
-						eff_sample  = as.integer(dat.sample$effort), 
-						eff_predict = as.integer(dat.predict$effort),
-						area_to_area = structure(as.integer(area.sample.to.estimate), dim = X.dims['area_sample']))
+	   "YAMC_D" = list(N = c(nrow(dat.sample), nrow(dat.predict)), 
+					Y = as.integer(X.dims['year']), 
+					A = as.integer(c(X.dims['area_sample'], X.dims['area_estimate'])),
+					M = X.dims['method'],
+					C = X.dims['category'],
+					XY_sample  = X.sample[['year']],  XA_sample  = X.sample[['area_sample']], XA_estimate = X.sample[['area_estimate']], XM_sample  = X.sample[['method']],
+					XC_sample  = X.sample[['category']], 
+					XY_predict = X.predict[['year']], XA_predict = X.predict[['area_sample']], XM_predict  = X.predict[['method']],  XC_predict  = X.predict[['category']], 
+					pos = as.numeric(dat.sample$biomass), 
+					bin = as.integer(dat.sample$bin), 
+					eff_sample  = as.integer(dat.sample$effort), 
+					eff_predict = as.integer(dat.predict$effort),
+					area_to_area = structure(as.integer(area.sample.to.estimate), dim = X.dims['area_sample']))
 		)
 	
 }

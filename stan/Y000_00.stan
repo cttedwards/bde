@@ -1,11 +1,9 @@
-// regression of 
-// by-catch and discard 
-// data using a two-part
-// binomial/log-normal model 
+// two-part regression of 
+// by-catch data 
 
 // NOTATION
 //
-// N: number of data records (estimation; prediction)
+// N: number of data records
 // Y: number of years
 // X: design matrices
 // gamma: bernoulli regression coefficients
@@ -18,6 +16,28 @@ functions {
 			if (y[n] > 0)
 				np += 1;
 		return np;
+	}
+	
+	real calc_sigma_z(real mu, real sigma, int n) {
+            
+        return sqrt(log((exp(square(sigma)) - 1) / n + 1));
+    }
+            
+	real calc_mu_z(real mu, real sigma, int n) {
+	
+		real sigma_z = calc_sigma_z(mu, sigma, n);
+	
+		return log(n) + mu + square(sigma) / 2 - square(sigma_z) / 2;
+	}
+	
+	real vector_norm(vector x) {
+	    
+	    real i = 0.0;
+	    
+	    for (j in 1:num_elements(x))
+	        i += pow(x[j], 2.0);
+	        
+	    return pow(i, 0.5);
 	}
 }
 data {
@@ -128,12 +148,6 @@ transformed data {
 			}
 		}
 	}
-	
-	// TO DO?: for each year and area create a positive record look up value
-	// such that i, j vector = 1 but is zero otherwise (to allow more 
-	// efficient access to pos vector). 
-	
-
 }
 parameters {
 
@@ -186,36 +200,49 @@ model {
 	betaY ~ normal(0, 1);
 	
 	// error terms
-	sigma ~ normal(0,1);
+	sigma ~ normal(0, 1);
 
 }
 generated quantities {
 	
+	// parameter summary statistics for
+	// convergence diagnostics
+	real gamma_summary[2];
+	real beta_summary[2];
+	real error_summary[1];
+	
 	// predictands
 	real theta_logit;
 	real mu_log;
+	
+	// transformed parameters
+	real mu_z;
+	real sigma_z;
 		
 	// expected values
-	real bin_hat[N[1]];
-	real pos_hat[N[1]];
+	real bin_hat;
+	real pos_hat;
 	real bin_hat_sum[Y];
 	real pos_hat_sum[Y];
 	
 	// simulated data
-	int  bin_sim[N[1]];
-	real pos_sim[N[1]];
+	// for diagnostics
+	int  bin_sim;
+	real pos_sim;
 	int  bin_sim_sum[Y];
 	real pos_sim_sum[Y];
-	
 	int  bin_sim_agg[Y];
 	real pos_sim_agg[Y];
+	
+	// results
 	int  bin_sim_obs[Y];
 	real pos_sim_obs[Y];
 	int  bin_sim_com[Y];
 	real pos_sim_com[Y];
 	
 	// discrepancy measure
-	real D[2] = {0.0, 0.0};
+	real DBN[3] = {0.0, 0.0, 0.0};
+	real DLN[3] = {0.0, 0.0, 0.0};
 	
 	// model output
 	real predicted_catch[Y];
@@ -228,36 +255,38 @@ generated quantities {
 			
 			bin_sim_sum[i] = 0;
 			pos_sim_sum[i] = 0.0;
+			
+			pos_sim_agg[i] = 0.0;
+			pos_sim_obs[i] = 0.0;
+			pos_sim_com[i] = 0.0;
 	}
 	
 	// CALCULATE EXPECTED VALUES
-	// BY RECORD AND SUM BY
-	// YEAR AND AREA
+	// BY RECORD AND SUM BY YEAR
 	for(i in 1:N[1]) {
 			
 		theta_logit = gamma0 + gammaY[XY_sample[i]];
 		mu_log      = beta0 + betaY[XY_sample[i]];
 		
-		bin_hat[i] = inv_logit(theta_logit);
-		pos_hat[i] = bin[i] > 0 ? exp(mu_log + square(sigma[XY_sample[i]]) / 2) : 0.0;
+		bin_hat = inv_logit(theta_logit);
+		pos_hat = bin_hat * exp(mu_log + square(sigma[XY_sample[i]]) / 2);
 		
-		bin_hat_sum[XY_sample[i]] += bin_hat[i];
-		pos_hat_sum[XY_sample[i]] += pos_hat[i];
+		bin_hat_sum[XY_sample[i]] += bin_hat;
+		pos_hat_sum[XY_sample[i]] += pos_hat;
 	}
 	
 	// SIMULATE OBSERVATIONAL DATA 
 	// BY RECORD AND SUM BY YEAR
-	// AND AREA
 	for(i in 1:N[1]) {
 	
 		theta_logit = gamma0 + gammaY[XY_sample[i]];
 		mu_log      = beta0  + betaY[XY_sample[i]];
 		
-		bin_sim[i] = bernoulli_logit_rng(theta_logit);
-		pos_sim[i] = bin_sim[i] > 0 ? lognormal_rng(mu_log, sigma[XY_sample[i]]) : 0.0;
+		bin_sim = bernoulli_logit_rng(theta_logit);
+		pos_sim = bin_sim * lognormal_rng(mu_log, sigma[XY_sample[i]]);
 			
-		bin_sim_sum[XY_sample[i]] += bin_sim[i];
-		pos_sim_sum[XY_sample[i]] += pos_sim[i];
+		bin_sim_sum[XY_sample[i]] += bin_sim;
+		pos_sim_sum[XY_sample[i]] += pos_sim;
 	}
 	
 	// SIMULATE AGGREGATED OBSERVATIONAL DATA
@@ -266,10 +295,16 @@ generated quantities {
 		
 		theta_logit = gamma0 + gammaY[i];
 		mu_log      = beta0  + betaY[i];
-		
+				
 		bin_sim_agg[i] = binomial_rng(eff_sample_sum[i], inv_logit(theta_logit));
-		pos_sim_agg[i] = bin_sim_agg[i] > 0 ? lognormal_rng(mu_log + log(bin_sim_agg[i]), sigma[i]) : 0.0;
 		
+		if (bin_sim_agg[i] > 0) {
+		
+			sigma_z = calc_sigma_z(mu_log, sigma[i], bin_sim_agg[i]);
+			mu_z    = calc_mu_z(mu_log, sigma[i], bin_sim_agg[i]);
+			//print(mu_z);
+			pos_sim_agg[i] = lognormal_rng(mu_z, sigma_z);
+		}				
 	}
 	
 	// SIMULATE AGGREGATED OBSERVATIONAL DATA
@@ -281,23 +316,49 @@ generated quantities {
 		mu_log      = beta0  + betaY[i];
 		
 		bin_sim_obs[i] = binomial_rng(eff_sample_sum[i], inv_logit(theta_logit));
-		pos_sim_obs[i] = bin_sim_obs[i] > 0 ? lognormal_rng(mu_log + log(bin_sim_obs[i]), sigma[i]) : 0.0;
+		
+		if (bin_sim_obs[i] > 0) {
+		
+			sigma_z = calc_sigma_z(mu_log, sigma[i], bin_sim_obs[i]);
+			mu_z    = calc_mu_z(mu_log, sigma[i], bin_sim_obs[i]);
+			
+			pos_sim_obs[i] = lognormal_rng(mu_z, sigma_z);
+		}
 			
 		bin_sim_com[i] = binomial_rng(eff_resid_sum[i], inv_logit(theta_logit));
-		pos_sim_com[i] = bin_sim_com[i] > 0 ? lognormal_rng(mu_log + log(bin_sim_com[i]), sigma[i]) : 0.0;
+		
+		if (bin_sim_com[i] > 0) {
+		
+			sigma_z = calc_sigma_z(mu_log, sigma[i], bin_sim_com[i]);
+			mu_z    = calc_mu_z(mu_log, sigma[i], bin_sim_com[i]);
 			
+			pos_sim_com[i] = lognormal_rng(mu_z, sigma_z);
+		}			
 	}
 	
 	// CALCULATE DISCREPANCIES
 	for (i in 1:Y) {
 		
-		D[1] += pow(pow(pos_sum[i], 0.5)     - pow(pos_hat_sum[i], 0.5), 2.0);
-		D[2] += pow(pow(pos_sim_sum[i], 0.5) - pow(pos_hat_sum[i], 0.5), 2.0);
+		DBN[1] += bin_sum[i]     - bin_hat_sum[i];
+		DBN[2] += bin_sim_sum[i] - bin_hat_sum[i];
+		DBN[3] += bin_sim_agg[i] - bin_hat_sum[i];
+		
+		DLN[1] += pos_sum[i]     - pos_hat_sum[i];
+		DLN[2] += pos_sim_sum[i] - pos_hat_sum[i];
+		DLN[3] += pos_sim_agg[i] - pos_hat_sum[i];
 	}
 	
 	// MODEL OUTPUT
 	for (i in 1:Y) {
 		predicted_catch[i] = pos_sim_obs[i] + pos_sim_com[i];
 	}
+	
+	// PARAMETER SUMMARY STATISTICS 
+	// FOR TRACE DIAGNOSTICS
+	gamma_summary[1] = gamma0;
+	gamma_summary[2] = vector_norm(gammaY);
+	beta_summary[1]  = beta0;
+	beta_summary[2]  = vector_norm(betaY);
+	error_summary[1] = vector_norm(to_vector(sigma));
 }
 
