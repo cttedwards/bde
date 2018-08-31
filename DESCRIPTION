@@ -1,7 +1,7 @@
 Package: bde
 Type: Package
 Title: Bycatch and discard estimation for New Zealand fisheries
-Version: 1.0.0.1085
+Version: 1.0.0.1093
 Date: 2018-08-31
 Author: Charles T T Edwards
 Maintainer: Charles T T Edwards <charles.edwards@niwa.co.nz>

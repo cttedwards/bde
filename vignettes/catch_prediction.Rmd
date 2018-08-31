@@ -12,7 +12,7 @@ vignette: >
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(fig.path = 'fig/bde-', fig.width = 6, tidy = TRUE, tidy.opts = list(blank = TRUE, width.cutoff = 105), message = FALSE, warning = FALSE, collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(fig.path = 'fig/bde-', fig.width = 6, tidy = TRUE, tidy.opts = list(blank = TRUE, width.cutoff = 150), message = FALSE, warning = FALSE, collapse = TRUE, comment = "#>")
 
 ```
 
@@ -24,6 +24,7 @@ library(reshape2)
 
 ```{r}
 # data simulation
+set.seed(100)
 
 # dimensions
 nyears  <- 20
@@ -163,18 +164,20 @@ diagnostics <- dfr
 # discrepancy measures
 discrepancy <- list()
 
-emp <- extract(mdl.fit, pars = "DBN")[[1]][,1]
-sim <- extract(mdl.fit, pars = "DBN")[[1]][,2]
+emp     <- extract(mdl.fit, pars = "DBN")[[1]][,1]
+sim_sum <- extract(mdl.fit, pars = "DBN")[[1]][,2]
+sim_agg <- extract(mdl.fit, pars = "DBN")[[1]][,3]
 
-discrepancy[["BN"]] <- data.frame(iter = 1:nit, observed = emp, simulated = sim)
+discrepancy[["BN"]] <- data.frame(iter = 1:nit, observed = emp, simulated_sum = sim_sum, simulated_aggregate = sim_agg)
 
-emp <- extract(mdl.fit, pars = "DLN")[[1]][,1]
-sim <- extract(mdl.fit, pars = "DLN")[[1]][,2]
+emp     <- extract(mdl.fit, pars = "DLN")[[1]][,1]
+sim_sum <- extract(mdl.fit, pars = "DLN")[[1]][,2]
+sim_agg <- extract(mdl.fit, pars = "DLN")[[1]][,3]
 
-discrepancy[["LN"]] <- data.frame(iter = 1:nit, observed = emp, simulated = sim)
+discrepancy[["LN"]] <- data.frame(iter = 1:nit, observed = emp, simulated_sum = sim_sum, simulated_aggregate = sim_agg)
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, fig.width = 3}
 plot(bin_hat_sum ~ bin_sum, diagnostics, xlab = "Observed", ylab = "Expected"); mtext("Binomial model\n", adj = 0)
 abline(0, 1, lwd = 2, col = 2)
     
@@ -187,10 +190,6 @@ abline(0, 1, lwd = 2, col = 2)
 #abline(0, 1, lwd = 2, col = 2)
 legend("topleft", col = c(1, 4), pch = 21, legend = c("Simulation by record", "Aggregate simulation"), bty = "n")
         
-lims <- range(discrepancy[["BN"]][,2:3])
-plot(simulated ~ observed, discrepancy[["BN"]], xlim = lims, ylim = lims, xlab = "Observed vs. Expected", ylab = "Simulated vs. Expected")
-abline(0, 1, lwd = 2, col = 2)
-
 plot(log(pos_hat_sum) ~ log(pos_sum), diagnostics, xlab = "Observed", ylab = "Expected"); mtext("log-Normal model\n", adj = 0)
 abline(0, 1, lwd = 2, col = 2)
 
@@ -202,17 +201,30 @@ abline(0, 1, lwd = 2, col = 2)
 #points(log(pos_sim_agg) ~ log(pos_hat_sum), diagnostics, col = 4)
 #abline(0, 1, lwd = 2, col = 2)
 legend("topleft", col = c(1, 4), pch = 21, legend = c("Simulation by record", "Aggregate simulation"), bty = "n")
+```
 
-lims <- range(discrepancy[["LN"]][,2:3])
-plot(simulated ~ observed, discrepancy[["LN"]], xlim = lims, ylim = lims, xlab = "Observed vs. Expected", ylab = "Simulated vs. Expected")
+```{r, echo = FALSE, fig.width = 3}
+lims <- range(discrepancy[["BN"]][,2:4])
+plot(simulated_sum ~ observed, discrepancy[["BN"]], xlim = lims, ylim = lims, xlab = "Observed vs. Expected", ylab = "Simulated vs. Expected")
+points(simulated_aggregate ~ observed, discrepancy[["BN"]], col = 4)
 abline(0, 1, lwd = 2, col = 2)
+mtext("Binomial model\n", adj = 0)
+
+lims <- range(discrepancy[["LN"]][,2:4])
+plot(simulated_sum ~ observed, discrepancy[["LN"]], xlim = lims, ylim = lims, xlab = "Observed vs. Expected", ylab = "Simulated vs. Expected")
+points(simulated_aggregate ~ observed, discrepancy[["LN"]], col = 4)
+abline(0, 1, lwd = 2, col = 2)
+mtext("log-Normal model\n", adj = 0)
 
 ```
 
 ```{r, echo = FALSE}
+dfr <- ddply(dat, .(year), summarize, catch = sum(catch))
+
 gg <- ggplot(res, aes(year, value)) + 
         stat_summary(fun.data = function(x) data.frame(ymin = quantile(x, 0.05), ymax = quantile(x, 0.95)), geom = "ribbon", alpha = 0.4) +
         stat_summary(fun.data = function(x) data.frame(y = median(x)), geom = "line", size = 2) +
+		geom_point(data = dfr, aes(as.numeric(as.character(year)), catch)) +
         labs(x = "Year", y = "Incidental catch\n(thousand tonnes)") +
         theme_bw(base_size = 20)
 print(gg)
