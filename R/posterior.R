@@ -31,8 +31,6 @@
             
         } else {
             
-            #stopifnot(length(pars) == length(dim.names))
-            
             for (i in 1:length(pars)) {
                 
                 dimnames(object[[pars[i]]]) <- dim.names[[pars[i]]]
