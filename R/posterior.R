@@ -5,7 +5,7 @@
 #' 
 #' @param object    output from call to \code{rstan::sampling()}.
 #' @param pars      character vector of posterior parameter samples to be extracted.
-#' @param dim.names optional list of lists containing dimension names for each parameter. If only a single \code{list(list())} entry is given it is applied to all parameters.
+#' @param dim.names optional list of named lists containing dimension names for each parameter, including the number of iterations over the first dimension. If only a single \code{list(list())} entry is given it is applied to all parameters. Not all parameters need to be provided with dimension names.
 #' @param melt      logical value indicating whether output arrays should be converted to long format using \code{rehape2::melt.array()}
 #' @param fun       one of either "mean" or "median", which will be calculated across iterations if supplied.
 #' 
@@ -31,11 +31,11 @@
             
         } else {
             
-            stopifnot(length(pars) == length(dim.names))
+            #stopifnot(length(pars) == length(dim.names))
             
-            for (i in 1:length(dim.names)) {
+            for (i in 1:length(pars)) {
                 
-                dimnames(object[[pars[i]]]) <- dim.names[[i]]
+                dimnames(object[[pars[i]]]) <- dim.names[[pars[i]]]
                 
             }
         }
