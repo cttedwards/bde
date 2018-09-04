@@ -9,8 +9,9 @@
 #' 
 #' @param object    output from call to \code{rstan::optimizing()}
 #' @param pars      character vector of map parameter esimates to be extracted
-#' @param dims      named list of dimensions for each parameter. If only a single list entry is given it is applied to all parameters.
-#' @param dim.names optional list of dimension names for each parameter. If only a single list entry is given it is applied to all parameters.
+#' @param dims      named list of dimension vectors for each parameter. If only a single list entry is given it is applied to all parameters. If the parameter is a unit vector (i.e. of length one), it should be given dimension 0.
+#' @param dim.names optional list of dimension names for each parameter. Dimension names for unit vectors are ignored (i.e. \code{dims = 0}). Dimension names for vectors should be given as a character vector.
+#' For arrays they should be given as a list. If only a single \code{dim.names} list entry is given it is applied to all parameters.
 #'
 #' @export
 "map" <- function(object, pars, ...) UseMethod("map")
@@ -47,7 +48,7 @@
         } else ds <- dims[[1]]
         
         if (!missing(dim.names)) {
-            if (length(dim.names) > 1) {
+            if (length(dims) > 1) {
                 dn <- dim.names[[pars[i]]]
             } else dn <- dim.names[[1]]
         } else dn <- NULL
@@ -55,31 +56,63 @@
         m <- regexpr(pars[i], names(object[['par']]), fixed = TRUE)
         m <- object[['par']][m > 0]
         
-        if (all(ds > 0)) { out[['estimate']][[i]] <- structure(as.numeric(m), dim = ds, names = NULL, dimnames = dn)
-        } else out[['estimate']][[i]] <- as.numeric(m)
+        if (all(ds == 0)) { 
+            # par is a real number
+            out[['estimate']][[pars[i]]] <- as.numeric(m)
+        } else {
+            if (length(ds) == 1) {
+                # par is a vector
+                out[['estimate']][[pars[i]]] <- structure(as.numeric(m), dim = ds, names = NULL, dimnames = list(dn))
+            } else {
+                # par is an array
+                out[['estimate']][[pars[i]]] <- structure(as.numeric(m), dim = ds, names = NULL, dimnames = dn)
+            }
+        }
 		
 		if (ERROR) {
 			
 			m <- regexpr(pars[i], colnames(object[['theta_tilde']]), fixed = TRUE)
 			m <- object[['theta_tilde']][, m > 0]
         
-			if (all(ds > 0)) { 
+			if (all(ds == 0)) { 
 			    
-			    m1 <- apply(as.matrix(m), 2, sd)
-			    out[['sd']][[i]] <- structure(m1, dim = ds, names = NULL, dimnames = dn)
-			    
-			    ds <- c(3, ds)
-			    dn <- c(list(quantile = c("50%", "2.5%", "97.5%")), dn)
-			    m2 <- apply(as.matrix(m), 2, quantile, c(0.5, 0.025, 0.975))
-			    out[['quantiles']][[i]] <- structure(m2, dim = ds, names = NULL, dimnames = dn)
-			    
-			} else {
+			    # par is a real number
 			    
 			    m1 <- sd(as.numeric(m))
 			    out[['sd']][[i]] <- m1
 			    
 			    m2 <- quantile(as.numeric(m), c(0.5, 0.025, 0.975))
 			    out[['quantiles']][[i]] <- structure(m2, dim = 3, names = c("50%", "2.5%", "97.5%"))
+			    
+			    
+			} else {
+			    
+			    if (length(ds) == 1) {
+			        
+			        # par is a vector
+
+			        m1 <- apply(as.matrix(m), 2, sd)
+			        out[['sd']][[i]] <- structure(m1, dim = ds, names = NULL, dimnames = list(dn))
+			        
+			        ds <- c(3, ds)
+			        dn <- list(quantile = c("50%", "2.5%", "97.5%"), dn)
+			        m2 <- apply(as.matrix(m), 2, quantile, c(0.5, 0.025, 0.975))
+			        out[['quantiles']][[i]] <- structure(m2, dim = ds, names = NULL, dimnames = dn)
+			        
+			        
+			    } else {
+			        
+			        # par is an array
+
+    			    m1 <- apply(as.matrix(m), 2, sd)
+    			    out[['sd']][[i]] <- structure(m1, dim = ds, names = NULL, dimnames = dn)
+    			    
+    			    ds <- c(3, ds)
+    			    dn <- c(list(quantile = c("50%", "2.5%", "97.5%")), dn)
+    			    m2 <- apply(as.matrix(m), 2, quantile, c(0.5, 0.025, 0.975))
+    			    out[['quantiles']][[i]] <- structure(m2, dim = ds, names = NULL, dimnames = dn)
+			    
+			    }
 			}
 		}
     }
