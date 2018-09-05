@@ -10,8 +10,8 @@
 #' @param object    output from call to \code{rstan::optimizing()}
 #' @param pars      character vector of map parameter esimates to be extracted
 #' @param dims      named list of dimension vectors for each parameter. If only a single list entry is given it is applied to all parameters. If the parameter is a unit vector (i.e. of length one), it should be given dimension 0.
-#' @param dim.names optional list of dimension names for each parameter. Dimension names for unit vectors are ignored (i.e. \code{dims = 0}). Dimension names for vectors should be given as a character vector.
-#' For arrays they should be given as a list. If only a single \code{dim.names} list entry is given it is applied to all parameters.
+#' @param dim.names optional list of dimension names for each parameter. Names for each parameter should be given as a list. Dimension names for unit vectors are ignored (i.e. \code{dims = 0}). 
+#' If only a single \code{dim.names} list entry is given it is applied to all parameters.
 #'
 #' @export
 "map" <- function(object, pars, ...) UseMethod("map")
@@ -62,7 +62,7 @@
         } else {
             if (length(ds) == 1) {
                 # par is a vector
-                out[['estimate']][[pars[i]]] <- structure(as.numeric(m), dim = ds, names = NULL, dimnames = list(dn))
+                out[['estimate']][[pars[i]]] <- structure(as.numeric(m), dim = ds, names = NULL, dimnames = dn)
             } else {
                 # par is an array
                 out[['estimate']][[pars[i]]] <- structure(as.numeric(m), dim = ds, names = NULL, dimnames = dn)
@@ -92,10 +92,10 @@
 			        # par is a vector
 
 			        m1 <- apply(as.matrix(m), 2, sd)
-			        out[['sd']][[i]] <- structure(m1, dim = ds, names = NULL, dimnames = list(dn))
+			        out[['sd']][[i]] <- structure(m1, dim = ds, names = NULL, dimnames = dn)
 			        
 			        ds <- c(3, ds)
-			        dn <- list(quantile = c("50%", "2.5%", "97.5%"), dn)
+			        dn <- c(list(quantile = c("50%", "2.5%", "97.5%")), dn)
 			        m2 <- apply(as.matrix(m), 2, quantile, c(0.5, 0.025, 0.975))
 			        out[['quantiles']][[i]] <- structure(m2, dim = ds, names = NULL, dimnames = dn)
 			        
@@ -111,7 +111,6 @@
     			    dn <- c(list(quantile = c("50%", "2.5%", "97.5%")), dn)
     			    m2 <- apply(as.matrix(m), 2, quantile, c(0.5, 0.025, 0.975))
     			    out[['quantiles']][[i]] <- structure(m2, dim = ds, names = NULL, dimnames = dn)
-			    
 			    }
 			}
 		}

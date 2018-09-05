@@ -1,7 +1,7 @@
 #'
 #' @title Make directories
 #' 
-#' @description Generates a list of directories of the form \code{file.path(root, model, lab, type)} and creates these directories if they are missing.
+#' @description Upon assignment, generates a list of directories of the form \code{file.path(root, model, lab, type)} and creates these directories if they are missing.
 #'
 #' @param model optional model name
 #' @param labels character vector of labels for each model run
@@ -25,12 +25,15 @@ make_dirs <- function(model, labels, root = "../../results", types = c("MAP", "V
     
             if (!missing(model)) { path <- file.path(root, model, tolower(lab), tolower(type))
             } else { path <- file.path(root, tolower(lab), tolower(type)) }
-            if (!dir.exists(path)) dir.create(path, recursive = TRUE)
+            
+            if (!dir.exists(path)) {
+                dir.create(path, recursive = TRUE)
+            }
             
             paths[[lab]][[type]] <- path
         
         }
     }
     
-    return(paths)
+    invisible(paths)
 }
