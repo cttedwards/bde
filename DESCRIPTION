@@ -1,8 +1,8 @@
 Package: bde
 Type: Package
 Title: Bycatch and discard estimation for New Zealand fisheries
-Version: 1.0.0.1101
-Date: 2018-09-05
+Version: 1.0.0.1105
+Date: 2018-09-06
 Author: Charles T T Edwards
 Maintainer: Charles T T Edwards <charles.edwards@niwa.co.nz>
 Description: Implements a two part (binomial/log-normal) statistical model to estimate the catch rate from observer data and applies this estimate to unobserved commercial effort to estimate the total bycatch and discards for non-target species.
