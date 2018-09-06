@@ -19,6 +19,7 @@ knitr::opts_chunk$set(fig.path = 'fig/bde-', fig.width = 6, tidy = TRUE, tidy.op
 # libraries
 library(ggplot2)
 library(rstan)
+library(bde)
 ```
 
 Positive catch data per tow can be modelled using a log-normal pdf. For observer record $i$:
@@ -37,7 +38,7 @@ Although we fit to tow-by-tow observer data to estimate $\mu$ and $\sigma$, we a
 \[
     Z = X_1 + X_2 + \dots + X_n 
 \]
-where each $X_i$ follows the log-normal distribution as defined above. Unfortunately the sum of log-normals does not follow a well defined probability distribution, although various approximations exist. The most common assumption is to assume that $Z$ also follows a log-normal distribution. If $X_i$ are i.i.d., then a good approximation for the first two moments is:
+where each $X_i$ follows the log-normal distribution as defined above. Unfortunately the sum of log-normals does not follow a well defined probability distribution, although various approximations exist. The most common assumption is to assume that $Z$ also follows a log-normal distribution. If $X_i$ are i.i.d., then a good approximation for the first two moments of $\ln(Z)$ is:
 \[
     \mu_{Z} = \ln\left(n \cdot \exp(\mu)\right) + \sigma^2 / 2 - \sigma^2_{Z} / 2
 \]
@@ -83,7 +84,9 @@ for (i in 1:length(sigma)) {
 
 ```
 
-To illustrate how this approach is used for posterior predictive simulation of the observed data, we construct a simple example.
+# Posterior predictive simulation
+
+To illustrate how a simulation approach is used for posterior prediction of the observed data, we construct a simple example.
 
 First we define a model that can estimate the parameters $\mu$ and $\sigma$ from log-normal data. Assuming $n$ samples generated from known values:
 \[
@@ -186,7 +189,7 @@ mean(log(x)); summary(mdl.fit)$summary["mu", "mean"]
 sd(log(x));   summary(mdl.fit)$summary["sigma", "mean"]
 ```
 
-The distribution of $E[X]$ and $SD[X]$ also matches the input data:
+The distribution of $E[X]$ and $SD[X]$ (taken across $n$ observations) also matches the input data:
 ```{r}
 # compare simulated values with data
 x_sim <- extract(mdl.fit, "x_sim")[[1]]
@@ -195,7 +198,8 @@ x_sim_mean <- apply(x_sim, 1, mean)
 x_sim_sd   <- apply(x_sim, 1, sd)
 ```
 
-```{r,echo=FALSE, fig.width=3}
+```{r,echo=FALSE}
+par(mfrow = c(1, 2))
 # distribution of mean and sd values from simulated data
 hist(x_sim_mean, probability = TRUE, main = expression(paste("Estimation of ", mu)), xlab = expression(hat(mu)))
 abline(v = mean(x), col = 2)
@@ -204,7 +208,7 @@ abline(v = sd(x), col = 2)
 ```
 
 Next we validate our ability to simulate $Z = \sum{X_i}$, using the notation $\tilde{z}$ and $\tilde{x}$ to represent model predicted values.
-```{r, fig.width=3}
+```{r}
 # distribution of summed values
 x_sim_sum <- extract(mdl.fit, "x_sim_sum")[[1]]
 x_sim_agg <- extract(mdl.fit, "x_sim_agg")[[1]]
@@ -234,7 +238,9 @@ abline(0, 1, col = 2)
 abline(v = sum(x), h = sum(x), col = 4)
 ```
 
-```{r, echo = FALSE, fig.cap="Distribution of simulated values around input data", fig.width=3}
+```{r, echo = FALSE, fig.cap="Distribution of simulated values around input data"}
+par(mfrow = c(1, 2))
+
 xlims <- range(x_sim_sum, x_sim_agg)
 
 hist(x_sim_sum, xlim = xlims, probability = TRUE, xlab = expression(sum(tilde(x))), main = "Sum of simulations");
@@ -246,7 +252,9 @@ abline(v = sum(x), col = 2)
 
 Finally, model performance is checked using the discrepancy statistics: $T(\tilde{z},p) = \tilde{z}_p - \hat{z}_p$ and $T(z,p) = z - \hat{z}_p$; which represent the residual values of the observed and simulated data around the estimated expectation. Posterior predictive p-values are also shown, which should be close to 0.5 if the model is performing well.
 
-```{r, echo=FALSE,results='hide',fig.width=3}
+```{r, echo=FALSE,results='hide'}
+par(mfrow = c(1,2))
+
 D1 <- extract(mdl.fit, "D1")[[1]]
 D2 <- extract(mdl.fit, "D2")[[1]]
 
@@ -261,8 +269,55 @@ abline(0, 1, col = 2)
 legend("bottomright", paste("p = ", mean(D2[,1] > D2[,2])), bty = "n")
 ```
 
-```{r, echo = FALSE,results='hide'}
+# Sampling from the approximate posterior
+
+In some cases, a full MCMC will not be performed. Instead, parameters might be estimated using maxium penalised likelihood, or equivalently, the maximum a posteriori density (MAP), which finds the mode of the posterior distribution. Since stan uses the log-posterior density to perform it's minimisation, generation of the Hessian matrix does not lead directly to the covariance matrix for the estimated parameters. Remembering that likelihood theory predicts that any parameter estimate is asymptotically normally distributed around it's true value, the mode and mean of the log-posterior are equivalent. The Hessian matrix provides the variance, and samples can be simulated and then back-transformed onto the natural scale, giving a distribution of samples that approximates the posterior. It is then possible to calculate the mean and quantiles from that approximate distribution.
+
+We show here that the approximation performs well, even for data that have been simulated using posterior prediction.
+
+```{r}
+# compare with MAP output
+mdl.fit.map <- map(optimizing(mdl, init =  function() list(mu = mu, sigma = sigma), hessian = TRUE, draws = 10000), 
+                   pars = c("mu_z", "sigma_z", "x_hat_sum", "x_sim_sum", "x_sim_agg"), dims = list(list(0)))
+```
+
+```{r, echo = FALSE}
+print("MAP estimates")
+t(vapply(c("mu_z", "sigma_z"), function(x) c("mean" = mdl.fit.map$estimate[[x]], 
+                                             "sd"   = mdl.fit.map$sd[[x]],
+                                                      mdl.fit.map$quantiles[[x]][2],
+                                                      mdl.fit.map$quantiles[[x]][1],
+                                                      mdl.fit.map$quantiles[[x]][3]), numeric(5)))
+
+print("MCMC estimates")
+summary(mdl.fit, pars = c("mu_z", "sigma_z"))[[1]][, c(1, 3, 4, 6, 8)]
+
+
+```
+
+```{r, echo=FALSE}
+# compare simulated values with data
+pars <- c("x_hat_sum", "x_sim_sum", "x_sim_agg")
+
+print("MAP estimates")
+t(vapply(pars, function(x) c("mean" = mdl.fit.map$estimate[[x]], 
+                             "sd"   = mdl.fit.map$sd[[x]],
+                                      mdl.fit.map$quantiles[[x]][2],
+                                      mdl.fit.map$quantiles[[x]][1],
+                                      mdl.fit.map$quantiles[[x]][3]), numeric(5)))
+
+print("MCMC estimates")
+summary(mdl.fit, pars = pars)[[1]][,c(1,3,4,6,8)]
+
+
+```
+
+
+```{r, echo = FALSE, results='hide'}
 # clean up
 file.remove("modelLogNormal.stan")
 ```
+
+
+
 

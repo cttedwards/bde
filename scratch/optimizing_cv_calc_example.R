@@ -67,7 +67,7 @@ sampling_sdparhat
 
 
 # check map function
-map(fit2, pars = c("mu", "sigma"), dims = c(0, 0))
+bde::map(fit2, pars = c("mu", "sigma"), dims = list(list(0), list(0)))
 
 
 
