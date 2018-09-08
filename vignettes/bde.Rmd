@@ -1,5 +1,5 @@
 ---
-title: "Bycatch and discards estimation for New Zealand fisheries (2018)"
+title: "Bycatch and discards estimation for New Zealand fisheries"
 author: "Charles T T Edwards (NIWA, Wellington, New Zealand)"
 date: "`r Sys.Date()`"
 output:
@@ -13,26 +13,30 @@ vignette: >
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(fig.path = 'fig/bde-', fig.width = 6, tidy = TRUE, tidy.opts = list(blank = TRUE, width.cutoff = 95), message = FALSE, warning = FALSE, collapse = TRUE, comment = "#>")
+library(knitr)
+opts_chunk$set(out.width='\\textwidth', fig.path = 'fig/bde-', fig.width = 6, tidy = TRUE, tidy.opts = list(blank = TRUE, width.cutoff = 95), message = FALSE, warning = FALSE, collapse = TRUE, comment = "#>")
 ```
 
 ```{r}
 library(bde)
 ```
 
-# Introduction
+The `bde` package is designed to facilitate estimation of bycatch and discards in New Zealand fisheries using a two-part, binomial/log-normal statistical model. The model is fitted to tow-by-tow observer sampling data $X_i$ (in kilograms) using the Bayesian `rstan` estimation framework. Estimated parameters are then used to predict the catch for unobserved commercial fishing effort.
 
-The `bde` package is designed to facilitate estimation of bycatch and discards in New Zealand fisheries using a two-part statistical model. The model is fitted to observer sampling data using the Bayesian `rstan` estimation framework. Estimated parameters are then used to predict the catch for unobserved commercial fishing effort.
-
-The model uses a Biomial likelihood to fit to the aggregated count data $z_j$ by, for example, year ($j$):
+The model uses a Binomial likelihood to fit to the summed count data by, for example, year ($j$):
 \[
-    z_j \sim B(n_j, \theta_j)
+    \sum_{i = 1}^{n}{I(X_{ij} > 0)} \sim B(n_j, \theta_j)
 \]
-whereas the positive catch data are included on a tow-by-tow basis. For observer record $i$, we therefore have:
+where $n$ is the observed fishing effort (number of tows). The positive catch data are included on a tow-by-tow basis, which is necessary for estimation of the standard error term $\sigma_j$. For observer record $i$, we therefore have:
 \[
-    y_i \sim LN(\mu_j, \sigma_j)
+    X_i \sim LN(\mu_j, \sigma_j)
 \]
-which is necessary for estimation of the standard error term $\sigma_j$. The two-model parts are considered independent.
+The two-model parts are considered independent. It is then necessary to generate the predicted catch from the residual (unobserved) commercial fishing effort. Because observed and un-observed effort cannot be matched, the residual effort is calculated on an aggregated scale by model strata (e.g. the sum of the unobserved effort for a particular year/area combination). At this aggregated scale, we are then required to simulate values for:
+\[
+    Z_j = \sum_{i = 1}^{n}{X_{ij}}
+\]
+which is the summed catch across unobserved effort for a given (in this case) year strata. This is achieved using posterior predictive simulation, with more details in an [accompanying vignette](lognormal_simulation.html).
 
-We illustrate utility of the package using simulated data.
+A [full example](catch_prediction.html) of data formating and execution of the model is also provided.
+
 

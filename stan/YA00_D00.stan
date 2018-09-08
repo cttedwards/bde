@@ -252,9 +252,6 @@ model {
 	betaY ~ normal(0, 1);
 	betaA ~ normal(0, 1);
 	
-	// error terms
-	sigma ~ normal(0, 1);
-
 }
 generated quantities {
 	
@@ -262,7 +259,6 @@ generated quantities {
 	// convergence diagnostics
 	real gamma_summary[3];
 	real beta_summary[3];
-	real error_summary[1];
 	
 	// predictands
 	real theta_logit;
@@ -416,6 +412,5 @@ generated quantities {
 	beta_summary[1]  = beta0;
 	beta_summary[2]  = vector_norm(betaY);
 	beta_summary[3]  = vector_norm(betaA);
-	error_summary[1] = vector_norm(to_vector(sigma));
 }
 

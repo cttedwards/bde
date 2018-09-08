@@ -257,11 +257,6 @@ model {
 	betaA ~ normal(0, 1);
 	for (i in 1:Y)
 		betaI[i] ~ normal(0, tau);
-	
-	// error terms
-	sigma ~ normal(0, 1);
-	tau   ~ normal(0, 1);
-
 }
 generated quantities {
 	
@@ -269,7 +264,6 @@ generated quantities {
 	// convergence diagnostics
 	real gamma_summary[3];
 	real beta_summary[4];
-	real error_summary[2];
 	
 	// predictands
 	real theta_logit;
@@ -429,8 +423,5 @@ generated quantities {
 	        betaI_norm[i] = vector_norm(betaI[i]);
 	    beta_summary[5] = vector_norm(betaI_norm);
 	}
-	error_summary[1] = vector_norm(to_vector(sigma));
-	error_summary[2] = tau;
-	
 }
 

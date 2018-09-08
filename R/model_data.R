@@ -1,15 +1,19 @@
 #'
 #' @title Prepare model data for input
 #'
-#' @description Data are formatted into a list for input into \code{stan} model
+#' @description Data are formatted into a list for input into \code{stan} model. A call to this function is typically preceeded by a call to \code{\link{data_prep}}, which will format the \code{data.sample} and \code{data.predict} data frames correctly. 
 #' 
 #' @param data.sample data.frame containing observer sampling data for estimation of catch rates
 #' @param data.predict data.frame containing commercial effort data for prediction of catch
-#' @param X.dims model dimensions from call to \code{data_dims()}
-#' @param X.sample model design matrix for sampling data from call to \code{data_design_matrix()}
-#' @param X.predict model design matrix for commercial data from call to \code{data_design_matrix()}
+#' @param X.dims model dimensions from call to \code{\link{data_dims}}
+#' @param X.sample model design matrix for sampling data from call to \code{\link{data_design_matrix}}
+#' @param X.predict model design matrix for commercial data from call to \code{\link{data_design_matrix}}
 #' @param area.sample.to.estimate integer vector mapping sampling/prediction area to area definition used for coefficient estimation
 #' 
+#' @details This function will use the covariate names in \code{X.dims} to generate a list of data appropriate for model input. If an area-disjunct model is being used, then the input data should contain columns headed \code{area_sample} and \code{area_estimate}. The \code{area.sample.to.estimate} argument is then used to map one to the other. For example, if we have \code{area_sample = c("NORTH", "SOUTH", "EAST", "WEST")} and \code{area_estimate = c("NORTH", "SOUTH", "EAST_WEST", "EAST_WEST")} in the \code{data.sample} and \code{data.predict} data frames, then we would specify \code{area.sample.to.estimate = c(1, 2, 3, 3)}, which gives \code{area_sample[area.sample.to.estimate] == area_estimate}. In this case, only three area covariates would be estimated, with the \code{EAST_WEST} covariate used to predict catches in both \code{EAST} and \code{WEST}.
+#'
+#' @seealso \code{\link{data_prep}}, \code{\link{data_dims}}, \code{\link{data_design_matrix}}
+#'
 #' @return list containing data for \code{stan} model run. 
 #'
 #' @export

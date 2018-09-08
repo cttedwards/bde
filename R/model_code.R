@@ -3,21 +3,27 @@
 #'
 #' @description \code{stan} model code is extracted from the \code{bde} package and written to file for compilation with \code{rstan}.
 #'
-#' @param covariates character vector of covariates to include (see Details) one of \code{'year'}, \code{'year_area'}, \code{'year_area_method'} or \code{'year_area_method_category'}
+#' @param covariates character vector of covariates to include (see Details)
 #' @param path where to save the model code
 #' @param area.conjunct logical indicating whether observer sampling area definitions are the same as the estimation areas used to fit the model.
 #' @param interaction logical indicating whether an interaction between year and area covariates should be estimated.
-#' @param hierarchical logical indicating whether the model has a hierachical error structure.log-normal observation error should be estimated or fixed at one.
+#' @param hierarchical logical indicating whether the model has a hierachical error structure.
 #'
 #' @details 
 #' Model covariates can be \code{'year'}, \code{'area'}, \code{'method'} and \code{'category'}, and must be included in that hierarchical order (i.e. all models must include a year covariate, and all models with a category covariate must also include method, area and year. 
 #' 
-#' If \code{area.disjunct = TRUE}, then the area definitions used to estimate area covariate parameter values are not the same as the area definitions used for observer sampling or commercial catch prediction. 
-#' Usually sampling areas will be combined and then covariate estimates shared across neighbouring areas for prediction.
+#' If \code{area.conjunct = FALSE}, then the area definitions used to estimate area covariate parameter values are not the same as the area definitions used for observer sampling or commercial catch prediction. 
+#' Usually sampling areas will be combined for better estimation, and then covariate estimates shared across neighbouring areas for prediction. If \code{area.conjunct = FALSE} be sure to correctly specify the \code{area.sample.to.estimate} argument in \code{\link[bde]{model_data}}.
 #'
 #' If \code{hierarchical = TRUE} then error terms are estimated, namely the log-normal observation error and, if present, the variance of the distribution of year:area interactions.
 #'
+#' @seealso \code{\link{model_data}}
+#' 
 #' @return text file with \code{*.stan} suffix 
+#' 
+#' @examples 
+#' require(rstan)
+#' model_code(covariates = c("year", "area"), interaction = TRUE)
 #'
 #' @export
 model_code <- function(covariates, path = ".", area.conjunct = TRUE, interaction = TRUE, hierarchical = TRUE) {
@@ -37,13 +43,13 @@ model_code <- function(covariates, path = ".", area.conjunct = TRUE, interaction
 	              "year_area_method_category" = "YAMC_000",
 	              stop("model not found"))
 				  
-	if (def == "year" & !area.conjunct) {
+	if (id == "year" & !area.conjunct) {
 		
 		warning("for 'year' model 'area.conjunct' argument is always TRUE")
 		area.conjunct <- TRUE
 	}
 	
-	if (def == "year" & interaction) {
+	if (id == "year" & interaction) {
 		
 		warning("for 'year' model 'interaction' argument is always FALSE")
 		interaction <- FALSE

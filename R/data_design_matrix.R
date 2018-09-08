@@ -7,6 +7,20 @@
 #' @param X.dims vector of cofactor dimensions from call to \code{data_dims}
 #' @param X.dimnames vector of cofactor names from call to \code{data_dims}
 #' 
+#' @examples
+#' # example data
+#' dfr <- expand.grid(year = c(1, 2), area = c("N", "S", "E", "W"))
+#' 
+#' # coerce to factors
+#' dfr <- data_prep(dfr, cofac.names = list(from = c("year", "area"), to = c("Y", "A")))
+#' 
+#' # get dimensions and dimension names
+#' xdims     <- data_dims(dfr, cofac.names = c("Y", "A"), dims = TRUE)
+#' xdimnames <- data_dims(dfr, cofac.names = c("Y", "A"), dimnames = TRUE)
+#' 
+#' # create look-up vectors
+#' data_design_matrix(dfr, xdims, xdimnames)
+#' 
 #' @export
 data_design_matrix <- function(data, X.dims, X.dimnames) {
     

@@ -7,11 +7,12 @@
 #' @param covar.names list(from, to) of continuous covariates
 #' @param cofac.names list(from, to) of discrete covariates
 #' 
-#' @return data.frame
+#' @return A data frame for model input, with correctly labelled columns
 #'
-#' @example 
-#' dfr <- data.frame(obs = runif(10), temp = runif(10), site = sample(letters[1:2], 10, replace = TRUE))
-#' dfr <- data_prep(dfr, var.names = list(from = "obs", to = "y"), covar = list(from = "temp", to = "x"), cofac = list(from = "site", to = "area")) 
+#' @examples
+#' dfr <- data.frame(observation = runif(3), temperature = runif(3), site = sample(letters[1:2], 3, replace = TRUE))
+#' 
+#' data_prep(dfr, var.names = list(from = "observation", to = "y"), covar = list(from = "temperature", to = "x"), cofac = list(from = "site", to = "area")) 
 #'
 #'
 #' @export

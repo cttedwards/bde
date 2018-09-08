@@ -206,7 +206,6 @@ generated quantities {
 	// convergence diagnostics
 	real gamma_summary[2];
 	real beta_summary[2];
-	real error_summary[1];
 	
 	// predictands
 	real theta_logit;
@@ -356,6 +355,5 @@ generated quantities {
 	gamma_summary[2] = vector_norm(gammaY);
 	beta_summary[1]  = beta0;
 	beta_summary[2]  = vector_norm(betaY);
-	error_summary[1] = vector_norm(to_vector(sigma));
 }
 

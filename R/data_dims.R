@@ -6,8 +6,20 @@
 #' @param cofac.names character vector of names for which to return levels and dimensions
 #' @param dims return dimensions?
 #' @param dimnames return dimnames?
+#' 
+#' @include data_prep.R
 #'
-#'
+#' @examples
+#' # example data
+#' dfr <- expand.grid(year = c(1, 2), area = c("N", "S", "E", "W"))
+#' 
+#' # coerce to factors
+#' dfr <- data_prep(dfr, cofac.names = list(from = c("year", "area"), to = c("Y", "A")))
+#' 
+#' # get dimensions and dimension names
+#' data_dims(dfr, cofac.names = c("Y", "A"), dims = TRUE)
+#' data_dims(dfr, cofac.names = c("Y", "A"), dimnames = TRUE)
+#' 
 #' @export
 data_dims <- function(data, ..., cofac.names, dims = TRUE, dimnames = !dims) {
     

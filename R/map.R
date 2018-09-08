@@ -1,18 +1,32 @@
 #'
 #' @title Extract maximum a posterior fit
 #'
-#' @description Takes as input a list from call to \code{optimizing} and extracts MAP parameter estimates.
+#' @description Takes as input a list from call to \code{\link[rstan]{optimizing}} and extracts maximum a posteriori (MAP) parameter estimates.
 #' 
-#' @details A call to \code{optimizing} returns maximum a posteriori parameter estimates, which are equivalent to the maximum penalised likelihood or maximum posterior density. If 
+#' @details A call to \code{\link[rstan]{optimizing}} returns MAP parameter estimates, which represent the model of the posterior distribution and are equivalent to the maximum penalised likelihood or maximum posterior density. If 
 #' the call was made with \code{optimizing(..., draws = <n>)} then it will draw \code{n} samples from the assumed multivariate normal posterior density on the untransformed scale, where \code{n} is
 #' a large number (>2000). These are then used by the \code{map()} function to calculate standard errors and confidence intervals.
 #' 
-#' @param object    output from call to \code{rstan::optimizing()}
+#' @param object    output from call to \code{\link[rstan]{optimizing}}
 #' @param pars      character vector of map parameter esimates to be extracted
 #' @param dims      named list of dimension vectors for each parameter. If only a single list entry is given it is applied to all parameters. If the parameter is a unit vector (i.e. of length one), it should be given dimension 0.
-#' @param dim.names optional list of dimension names for each parameter. Names for each parameter should be given as a list. Dimension names for unit vectors are ignored (i.e. \code{dims = 0}). 
+#' @param dim.names optional list of dimension names for each parameter. Names for each parameter should be given as a list. Dimension names for unit vectors are ignored (i.e. if \code{dims = 0}). 
 #' If only a single \code{dim.names} list entry is given it is applied to all parameters.
+#' 
+#' @note This function uses regular expression matching to find the parameter values in the returned object from \code{\link[rstan]{optimizing}}. Caution should be exercised if the parameter name given in the \code{pars} argument could match more than one model output. For example, specifying \code{pars = "catch"} would match parameters labelled \code{catch} and \code{catch_sum}, which will confuse the dimension specification.
 #'
+#' @examples
+#' require(rstan)
+#' 
+#' mdl <- "data{ int n; vector[n] x; }	parameters{ real mu; }	model{ x ~ normal(mu, 1.0);} generated quantities{ vector[n] x_sim; real x_sim_sum; for (i in 1:n) x_sim[i] = normal_rng(mu, 1.0); x_sim_sum = sum(x_sim);}\n"	
+#' mdl <- stan_model(model_code = mdl)
+#' n = 20
+#' x = rnorm(n, 0, 2)
+#' 
+#' mdl.fit <- optimizing(mdl, data = list(n = n, x = x), init = list(mu = 0), draws = 2000)
+#' 
+#' map(mdl.fit, pars = c("mu", "x_sim[", "x_sim_sum"), dims = list("mu" = 0, "x_sim[" = n, "x_sim_sum" = 0))
+#' 
 #' @export
 "map" <- function(object, pars, ...) UseMethod("map")
 #' @rdname map
