@@ -1,0 +1,14 @@
+
+Models are defined as:
+
+Y/0: Year covariate
+A/0: Area covariate
+M/0: Method covariate
+C/0: Vessel category covariate
+
+D/0: Disjunct area definitions (i.e. whether sampling/prediction areas are the same as estimation areas)
+I/0: Interaction between area and year effects
+H/0: Hierarchical model structure indicating whether the log-normal observation uncertainty is estimated or fixed.
+
+
+
