@@ -13,7 +13,7 @@
 #' @param dim.names optional list of dimension names for each parameter. Names for each parameter should be given as a list. Dimension names for unit vectors are ignored (i.e. if \code{dims = 0}). 
 #' If only a single \code{dim.names} list entry is given it is applied to all parameters.
 #' 
-#' @note This function uses regular expression matching to find the parameter values in the returned object from \code{\link[rstan]{optimizing}}. Caution should be exercised if the parameter name given in the \code{pars} argument could match more than one model output. For example, specifying \code{pars = "catch"} would match parameters labelled \code{catch} and \code{catch_sum}, which will confuse the dimension specification.
+#' @note This function uses pattern matching to find the parameter values in the returned object from \code{\link[rstan]{optimizing}}. Caution should be exercised if the parameter name given in the \code{pars} argument could match more than one model output. For example, specifying \code{pars = "catch"} would match parameters labelled \code{catch} and \code{catch_sum}, which will confuse the dimension specification. This defect needs to be resolved using regular expression matching.
 #'
 #' @examples
 #' require(rstan)
@@ -130,5 +130,9 @@
 		}
     }
     
+    # add class definition for downstream functions
+    class(out) <- c(class(out), "maxposterior")
+    
+    # return
     return(out)
 }

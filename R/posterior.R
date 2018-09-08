@@ -1,9 +1,9 @@
 #'
 #' @title Extract posterior density
 #'
-#' @description Takes as input a \code{stanfit} object from call to \code{sampling} and extracts the posterior or functions thereof.
+#' @description Takes as input a \code{stanfit} object from call to \code{\link[rstan]{sampling}} and extracts the posterior or functions thereof.
 #' 
-#' @param object    output from call to \code{rstan::sampling()}.
+#' @param object    output from call to \code{\link[rstan]{sampling}}.
 #' @param pars      character vector of posterior parameter samples to be extracted.
 #' @param dim.names optional list of named lists containing dimension names for each parameter, including the number of iterations over the first dimension. If only a single \code{list(list())} entry is given it is applied to all parameters. Not all parameters need to be provided with dimension names.
 #' @param melt      logical value indicating whether output arrays should be converted to long format using \code{rehape2::melt.array()}
