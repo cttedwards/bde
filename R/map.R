@@ -131,7 +131,7 @@
     }
     
     # add class definition for downstream functions
-    class(out) <- c(class(out), "maxposterior")
+    class(out) <- c(class(out), "map")
     
     # return
     return(out)

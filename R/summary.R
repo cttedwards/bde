@@ -10,6 +10,8 @@
 #' 
 #' @include map.R
 #' 
+#' @method summary map
+#' 
 #' @examples 
 #' require(rstan)
 #' 
@@ -25,10 +27,7 @@
 #' summary(mdl.map, pars = c("mu", "sigma"))
 #'
 #' @export
-"summary" <- function(object, pars, ...) UseMethod("summary")
-#' @rdname summary
-#' @export
-"summary.maxposterior" <- function(object, pars) {
+"summary.map" <- function(object, pars) {
     
     t(vapply(pars, function(x) c("mean" = object$estimate[[x]], 
                                  "sd"   = object$sd[[x]],
