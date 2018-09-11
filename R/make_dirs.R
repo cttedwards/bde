@@ -1,13 +1,13 @@
 #'
 #' @title Make directories
 #' 
-#' @description Upon assignment, generates a list of directories of the form \code{file.path(root, model, label, type)} and creates these directories if they are missing.
+#' @description Upon assignment, generates a list of directories of the form \code{file.path(root, category, label, type)} and creates these directories if they are missing. Arguments \code{root} and \code{category} are character strings, whereas \code{labels} and \code{types} are vectors. 
 #'
-#' @param model optional character string giving the model name
-#' @param labels character vector of labels for each model run
-#' @param root root path to the new directory or directories
-#' @param type type of model estimation being one or more of \code{MAP}, \code{VB}, \code{MCMC}
-#' @param clean logical indicating whether previously existent directories in the specified path locations should be deleted
+#' @param category optional character string giving the category of model (e.g. the model name).
+#' @param labels character vector of labels for each model run (e.g. the species names).
+#' @param root root path to the new directory or directories being created.
+#' @param type type of model estimation being one or more of \code{MAP}, \code{VB}, \code{MCMC}.
+#' @param clean logical indicating whether previously existent directories in the specified path locations should be deleted. Use with caution.
 #' 
 #' @note By default an additional directory is also created of the form \code{file.path(root, model, label, ".")} (i.e. without the \code{type}) specification for storage of model data inputs common to each estimation type.
 #' 
