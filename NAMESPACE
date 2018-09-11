@@ -2,7 +2,7 @@
 
 S3method(map,list)
 S3method(posterior,stanfit)
-S3method(summary,maxposterior)
+S3method(summary,map)
 export(data_align)
 export(data_design_matrix)
 export(data_dims)
@@ -12,4 +12,3 @@ export(map)
 export(model_code)
 export(model_data)
 export(posterior)
-export(summary)
