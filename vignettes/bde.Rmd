@@ -23,19 +23,44 @@ library(bde)
 
 The `bde` package is designed to facilitate estimation of bycatch and discards in New Zealand fisheries using a two-part, binomial/log-normal statistical model. The model is fitted to tow-by-tow observer sampling data $X_i$ (in kilograms) using the Bayesian `rstan` estimation framework. Estimated parameters are then used to predict the catch for unobserved commercial fishing effort.
 
-The model uses a Binomial likelihood to fit to the summed count data by, for example, year ($j$):
+The model uses a Binomial likelihood to fit to the summed count data by, for example, strata ($j$):
 \[
-    \sum_{i = 1}^{n}{I(X_{ij} > 0)} \sim B(n_j, \theta_j)
+    Y_j = \sum_{i = 1}^{n^{[O]}}{I(X_{ij} > 0)} \sim B\left(n^{[O]}_j, \theta_j\right)
 \]
-where $n$ is the observed fishing effort (number of tows). The positive catch data are included on a tow-by-tow basis, which is necessary for estimation of the standard error term $\sigma_j$. For observer record $i$, we therefore have:
+where $n^{[O]}$ is the observed fishing effort (number of tows). The positive catch data are included on a tow-by-tow basis, which is necessary for estimation of the standard error term $\sigma$. For observer record $i$, we therefore have:
 \[
-    X_i \sim LN(\mu_j, \sigma_j)
+    X_i|X_i > 0 \sim LN(\mu_j, \sigma^2)
 \]
-The two-model parts are considered independent. It is then necessary to generate the predicted catch from the residual (unobserved) commercial fishing effort. Because observed and un-observed effort cannot be matched, the residual effort is calculated on an aggregated scale by model strata (e.g. the sum of the unobserved effort for a particular year/area combination). At this aggregated scale, we are then required to simulate values for:
+The two-model parts are considered independent, giving the full likelhood per observation as:
 \[
-    Z_j = \sum_{i = 1}^{n}{X_{ij}}
+L(\theta_j, \mu_j, \sigma|X_{ij}) = (1 - \theta_j)\cdot I(X_{ij} = 0) + \theta_j \cdot f(X_{ij}|X_{ij} > 0, \mu_j, \sigma)
 \]
-which is the summed catch across unobserved effort for a given (in this case) year strata. This is achieved using posterior predictive simulation, with more details in an [accompanying vignette](lognormal_simulation.html).
+and the expectation across tows for strata $j$ is:
+\[
+E[X_j] = \theta_j \cdot \exp(\mu_j + \sigma^2 / 2)
+\]
+
+It is then necessary to generate the predicted catch from the residual (unobserved) commercial fishing effort. Because observed and un-observed effort cannot be matched, the residual effort is calculated on an aggregated scale by model strata (e.g. the sum of the unobserved effort for a particular year/area combination): 
+\[
+n^{[R]}_j = \max\left\{n^{[C]}_j - n^{[O]}_j, 0\right\}
+\]
+At this aggregated scale, we are then required to simulate values for:
+\[
+    Z_j^{[R]} = \sum_{i = 1}^{n^{[R]}}{X_{ij}} 
+\]
+which is the summed catch across unobserved effort for a given strata. Simulated values are given the notation $\tilde{Z}_j^{[R]}$. The observed catches $Z_j^{[O]}$ are treated as known, giving the total predicted catch per strata as:
+\[
+    \tilde{Z}_j = \tilde{Z}_j^{[R]} + Z_j^{[O]}
+\]
+The $\tilde{Z}_j^{[R]}$ are generated through posterior predicitive simulation, which involves sampling parameter values from their posterior distributions and using them to generate random observations from either the binomial or log-normal model components. Specifically, for posterior samples $\{\theta_{j(p)}\}$, we simulate:
+\[
+    \tilde{Y}^{[R]}_{j(p)} \sim B\left(n^{[R]}_j, \theta_{j(p)}\right)
+\]
+and then:
+\[
+    \tilde{Z}^{[R]}_{j(p)} \sim LN(m_{j(p)}, v^2_{p})
+\]
+where $m_{j(p)}$ and $v_{j(p)}$ are the expected value and variance of $\ln(Z_{j(p)})$. The calculation of $m_{j(p)}$ and $v_{j(p)}$ is detailed in an [accompanying vignette](lognormal_simulation.html).
 
 A [full example](catch_prediction.html) of data formating and execution of the model is also provided.
 
