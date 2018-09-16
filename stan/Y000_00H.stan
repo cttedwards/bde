@@ -350,7 +350,8 @@ generated quantities {
 	
 	// MODEL OUTPUT
 	for (i in 1:Y) {
-		predicted_catch[i] = pos_sim_obs[i] + pos_sim_com[i];
+		//predicted_catch[i] = pos_sim_obs[i] + pos_sim_com[i];
+		predicted_catch[i] = pos_sum[i] + pos_sim_com[i];
 	}
 	
 	// PARAMETER SUMMARY STATISTICS 

@@ -410,7 +410,8 @@ generated quantities {
 	for (i in 1:Y) {
 		for (j in 1:A) {
 		
-		    predicted_catch[i, j] = pos_sim_obs[i, j] + pos_sim_com[i, j];
+		    //predicted_catch[i, j] = pos_sim_obs[i, j] + pos_sim_com[i, j];
+			predicted_catch[i, j] = pos_sum[i, j] + pos_sim_com[i, j];
 			
 			predicted_catch_sum[i] += predicted_catch[i, j];
 		}
