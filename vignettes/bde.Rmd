@@ -14,54 +14,382 @@ vignette: >
 
 ```{r setup, include=FALSE}
 library(knitr)
-opts_chunk$set(out.width='\\textwidth', fig.path = 'fig/bde-', fig.width = 6, tidy = TRUE, tidy.opts = list(blank = TRUE, width.cutoff = 95), message = FALSE, warning = FALSE, collapse = TRUE, comment = "#>")
+opts_chunk$set(out.width='\\textwidth', fig.path = 'fig/bde-', fig.width = 7, tidy = TRUE, tidy.opts = list(blank = TRUE, width.cutoff = 120), message = FALSE, warning = FALSE, collapse = FALSE, comment = "#>")
 ```
 
 ```{r}
 library(bde)
+library(ggplot2)
 ```
+
+```{r, echo = FALSE}
+# data simulation
+set.seed(100)
+
+# dimensions
+nyears  <- 20
+ngrids  <- 10
+nfleets <- 1
+
+# grid names
+grids <- paste0("G", 1:ngrids)
+
+# annual commercial effort per fleet
+effort <- matrix(200, nrow = nyears, ncol = nfleets)
+
+# observer sampling ratio per fleet
+sample_ratio <- matrix(0.3, nrow = nyears, ncol = nfleets)
+
+# PARAMETERS
+mu    <- rgamma(sum(ngrids), shape = 10, scale = 0.2) #2.0
+theta <- 1 - exp(-0.5 * mu) #0.6
+sigma <- 0.5
+
+# SIMULATE DATA
+dat <- data.frame(grid    = character(),
+                  year    = numeric(),
+                  effort  = numeric(), 
+                  bin     = numeric(), 
+                  catch   = numeric(),
+                  theta   = numeric(),
+                  mu      = numeric(),
+                  sigma   = numeric())
+
+for (i in 1:nyears) {
+    
+    for (j in 1:nfleets) {
+    
+        effort_per_grid <- rmultinom(1, effort[i,j], prob = mu / sum(mu))[,1]
+        
+        for (k in 1:sum(ngrids)) {
+    
+            dat <- rbind(dat, 
+                         data.frame(year    = ifelse(i < 10, paste0("0", as.character(i)), as.character(i)),
+                                    grid    = grids[k], 
+                                    effort  = rep(1, effort_per_grid[k]), 
+                                    sampled = runif(effort_per_grid[k]) < sample_ratio[i, j],
+                                    bin     = rbinom(effort_per_grid[k], 1, theta[k]), 
+                                    catch   = rlnorm(effort_per_grid[k], log(mu[k]), sigma),
+                                    theta   = theta[k],
+                                    mu      = mu[k],
+                                    sigma   = sigma))
+        }
+    }
+}
+
+dat[!dat[, 'bin'], 'catch'] <- 0
+```
+
+# Overview
 
 The `bde` package is designed to facilitate estimation of bycatch and discards in New Zealand fisheries using a two-part, binomial/log-normal statistical model. The model is fitted to tow-by-tow observer sampling data $X_i$ (in kilograms) using the Bayesian `rstan` estimation framework. Estimated parameters are then used to predict the catch for unobserved commercial fishing effort.
 
-The model uses a Binomial likelihood to fit to the summed count data by, for example, strata ($j$):
+Fishing effort consists of observed and unobserved components, which are given the notation $o$ and $r$, the latter being referred to the residual effort. The total effort for strata $j$ is therefore:
 \[
-    Y_j = \sum_{i = 1}^{n^{[O]}}{I(X_{ij} > 0)} \sim B\left(n^{[O]}_j, \theta_j\right)
+n_j \approx r_j + o_j
 \]
-where $n^{[O]}$ is the observed fishing effort (number of tows). The positive catch data are included on a tow-by-tow basis, which is necessary for estimation of the standard error term $\sigma$. For observer record $i$, we therefore have:
+with the approximation necessary because of occasional double counts. The bycatch and discards data recorded by observers typically follows a semi-continuous distribution, with a high proportion of zeros and a positive skewed continuous distribution of non-zero catches. 
+
+```{r, echo = FALSE}
+gg <- ggplot(dat) + geom_histogram(aes(x = catch, y = ..density..)) + theme_bw() + ggtitle("Semi-continuous catch data")
+print(gg)
+```
+
+The observed zero/non-zero data are fitted using a Binomial likelihood. To increase the speed of computation, the proportion of positive catches $\theta$ is estimated using the summed count data. For example, for strata ($j$):
+\[
+    Y_j = \sum_{i = 1}^{o}{I(X_{ij} > 0)} \sim B\left(o_j, \theta_j\right)
+\]
+where $I(.)$ is an indicator function equal to one if the condition inside the parentheses is met. The positive catch data are included on a tow-by-tow basis, which is necessary for estimation of the standard error term $\sigma$. For observer record $i$, we therefore have:
 \[
     X_i|X_i > 0 \sim LN(\mu_j, \sigma^2)
 \]
-The two-model parts are considered independent, giving the full likelhood per observation as:
+The two-model parts are considered independent, giving the full likelhood per strata as:
 \[
-L(\theta_j, \mu_j, \sigma|X_{ij}) = (1 - \theta_j)\cdot I(X_{ij} = 0) + \theta_j \cdot f(X_{ij}|X_{ij} > 0, \mu_j, \sigma)
+L(\theta_j, \mu_j, \sigma) = \prod_{i=1}^{o_j}\left\{(1 - \theta_j)\cdot I(X_{ij} = 0) + \theta_j \cdot f_{LN}(X_{ij}|X_{ij} > 0, \mu_j, \sigma)\right\}
 \]
-and the expectation across tows for strata $j$ is:
-\[
-E[X_j] = \theta_j \cdot \exp(\mu_j + \sigma^2 / 2)
-\]
+where $f_{LN}$ is the pdf of a log-normal distribution evaluated at $X_{ij}$ and $\theta$ is the pmf of a Bernoulli distribution evaluated at one.
 
-It is then necessary to generate the predicted catch from the residual (unobserved) commercial fishing effort. Because observed and un-observed effort cannot be matched, the residual effort is calculated on an aggregated scale by model strata (e.g. the sum of the unobserved effort for a particular year/area combination): 
+What follows is a description of how the model is implemented, including the specification of covariates, parameterisation, prediction of the catch, and finally model performance diagnostics.
+
+# Specification of the model covariates
+
+Both $\theta$ and $\mu$ are predicted in an hierarchical manner using covariates:
 \[
-n^{[R]}_j = \max\left\{n^{[C]}_j - n^{[O]}_j, 0\right\}
+\text{logit}(\theta) = \mathbf{X} \cdot \gamma
+\]
+\[
+\ln(\mu) = \mathbf{X} \cdot \beta
+\]
+where $\mathbf{X}$ in this case is the design matrix. Covariates included to date are: 
+
+1. fishing year; 
+2. standard area; 
+3. fishing method (gear); and 
+4. vessel category. 
+
+These are specified based on pre-existent knowledge of the fishery and an understanding of the data. No formal model selection is conducted. Selected covariates are used in both the Binomial and log-normal model parts, but with separate coefficients estimated for each. The model is specified using the `model_code()` function, which extracts `stan` code from the package and writes it to the current local directory. In addition to specification of the covariates, the following options are available as logical arguments:
+
+1. `interaction`: should a year:area interaction term be included in the log-normal model specification?
+2. `hierarchical`: should a hierarchical model structure be used to estimate a standard error per year, and the standard error of the interaction terms (if included)?
+3. `area.conjunt` : are area coefficients estimated at the same area specification that is being used for prediction? 
+
+As an example we load the model code and fit it to simulated data. First the code is obtained from the `bde` package. The simplest model, with `year` as the only covariate, and with hierarchical estimation of the $\sigma$ terms, is written to the current directory using:
+
+```{r}
+# get model
+model_code(covariates = "year", hierarchical = TRUE)
+```
+
+Additional covariates can also be included (see `help("model_code")` for details). The model is then compiled using `rstan`:
+```{r, results = 'hide', cache=FALSE}
+# compile model
+mdl <- stan_model(file = 'year.stan')
+```
+
+# Fitting the model
+
+First, we prepare the data using `data_prep()`, which will rename and format the observer and commercial data to produce the required data frames. These are referred to here as `dat.sample`, which is the observed (sampled) effort, and `dat.predict` which is the total (observed and unobserved) fishing effort.
+
+
+```{r, results = 'hide'}
+# coerce observer data
+dat.sample <- data_prep(subset(dat, sampled), 
+                        var.names   = list(from = c('catch', 'bin'), to = c('biomass', 'bin')), 
+                        cofac.names = list(from = 'year', to = 'year'), 
+                        covar.names = list(from = 'effort', to = 'effort'))
+
+
+# coerce commercial effort data
+dat.predict <- data_prep(dat, 
+                         var.names   = NULL,
+                         cofac.names = list(from = 'year', to = 'year'),
+                         covar.names = list(from = 'effort', to = 'effort'))
+```
+
+We then prepare the dimensions, dimension names, and desing matrices for both the observer and commercial data:
+```{r}
+# make dimensions and labels
+X.dims     <- data_dims(dat.sample, dat.predict)
+X.dimnames <- data_dims(dat.sample, dat.predict, dimnames = TRUE)
+
+# make design matrices
+X.sample  <- data_design_matrix(dat.sample,  X.dims, X.dimnames)
+X.predict <- data_design_matrix(dat.predict, X.dims, X.dimnames)
+```
+
+Finally, a list suitable for direct input into the `rstan` estimations functions is obtained using:
+```{r}
+# create input data list
+mdl.dat <- model_data(dat.sample, dat.predict, X.dims, X.sample, X.predict)
+```
+
+Before we perform a full model fit, we execute a preliminary optimisation to obtain suitable initial values. This is achieved using the `stan` minimisation routine `optimizing()`, which finds the maximum penalised likelihood. It can be wrapped inside a call to `map()`, which (in the current context at least) extracts the maximum a posterior (MAP) estimate from the list produced by `optimizing()`. 
+
+```{r}
+mdl.ini <- map(optimizing(mdl, mdl.dat, iter = 500), 
+               pars = c("gamma0", "gammaY", "beta0", "betaY"), 
+               dims = list(0, X.dims['year'], 0, X.dims['year']))
+
+mdl.ini$sigma <- rep(1, X.dims['year'])
+```
+
+We can then proceed to fit the model using either the MAP or a full Bayesian MCMC. 
+
+## MAP fit
+
+```{r}
+nit <- 2000
+mdl.fit.map <- optimizing(mdl, mdl.dat, init = function() mdl.ini, hessian = TRUE, draws = nit)
+
+# extract results
+res.map <- map(mdl.fit.map, pars = c("predicted_catch"), dims = list(list(X.dims['year'])))
+
+# print summary
+summary(res.map, pars = c("predicted_catch"))
+```
+
+# MCMC fit
+
+```{r, cache=FALSE}
+nit <- 2000
+mdl.fit.mcmc <- sampling(mdl, mdl.dat, init = function() mdl.ini, iter = nit, chains = 2)
+
+nit <- (2000 - 1000) * 2
+
+# extract results
+res.mcmc <- posterior(mdl.fit.mcmc, pars = "predicted_catch", dim.names = list(list(iter = 1:nit, year = X.dimnames$year)), melt = TRUE)[[1]]
+
+# print summary
+summary(mdl.fit.mcmc, pars = "predicted_catch")[[1]]
+```
+
+```{r, echo = FALSE}
+gg <- traceplot(mdl.fit.mcmc, pars = c("gamma_summary", "beta_summary", "error_summary")) + 
+        ggtitle("Parameter summary statistics") +
+        theme_bw(base_size = 12)
+print(gg)
+```
+
+# Posterior prediction of unobserved catches
+
+Following fits of the model it is then necessary to generate the predicted catch from the residual (unobserved) commercial fishing effort. Because observed and un-observed effort cannot be matched, the residual effort is calculated on an aggregated scale by model strata (e.g. the sum of the unobserved effort for a particular year/area combination): 
+\[
+    r_j = \max\left\{n_j - o_j, 0\right\}
 \]
 At this aggregated scale, we are then required to simulate values for:
 \[
-    Z_j^{[R]} = \sum_{i = 1}^{n^{[R]}}{X_{ij}} 
+    Z_j = \sum_{i = 1}^{r}{X_{ij}} 
 \]
-which is the summed catch across unobserved effort for a given strata. Simulated values are given the notation $\tilde{Z}_j^{[R]}$. The observed catches $Z_j^{[O]}$ are treated as known, giving the total predicted catch per strata as:
+which is the summed catch across unobserved effort for a given strata. Simulated values are given the tilde notation $\tilde{Z}_j$. The observed catches $X_{ij}$ are treated as known, giving the total predicted catch per strata as:
 \[
-    \tilde{Z}_j = \tilde{Z}_j^{[R]} + Z_j^{[O]}
+    \tilde{Z}_j + \sum_{i=1}^{o} X_{ij}
 \]
-The $\tilde{Z}_j^{[R]}$ are generated through posterior predicitive simulation, which involves sampling parameter values from their posterior distributions and using them to generate random observations from either the binomial or log-normal model components. Specifically, for posterior samples $\{\theta_{j(p)}\}$, we simulate:
+The $\tilde{Z}_j$ are generated through posterior predicitive simulation, which involves sampling parameter values from their posterior distributions and using them to generate random observations from either the binomial or log-normal model components. Specifically, for posterior samples $\{\theta_{j(p)}, \mu_{j(p)}, \sigma_{j(p)}\}$, we simulate:
 \[
-    \tilde{Y}^{[R]}_{j(p)} \sim B\left(n^{[R]}_j, \theta_{j(p)}\right)
+    \tilde{Y}_{j(p)} \sim B\left(r_j, \theta_{j(p)}\right)
 \]
 and then:
 \[
-    \tilde{Z}^{[R]}_{j(p)} \sim LN(m_{j(p)}, v^2_{p})
+    \tilde{Z}_{j(p)} \sim LN(m_{j(p)}, v^2_{j(p)})
 \]
 where $m_{j(p)}$ and $v_{j(p)}$ are the expected value and variance of $\ln(Z_{j(p)})$. The calculation of $m_{j(p)}$ and $v_{j(p)}$ is detailed in an [accompanying vignette](lognormal_simulation.html).
 
-A [full example](catch_prediction.html) of data formating and execution of the model is also provided.
+Catch predictions closely match the known simulated values (shown as black dots) for both the MAP and full MCMC estimation procedures.
 
+```{r, echo = FALSE}
+dfr <- plyr::ddply(dat, "year", plyr::summarize, catch = sum(catch))
+
+dfr.map <- data.frame(year = as.numeric(as.character(X.dimnames$year)), 
+                      #value = as.numeric(res.map$estimate$predicted_catch),
+                      value = as.numeric(res.map$quantiles$predicted_catch[1,]),
+                      value_low = as.numeric(res.map$quantiles$predicted_catch[2,]),
+                      value_upp = as.numeric(res.map$quantiles$predicted_catch[3,]))
+
+gg <- ggplot(res.mcmc, aes(year, value)) + 
+        stat_summary(fun.data = function(x) data.frame(ymin = quantile(x, 0.05), ymax = quantile(x, 0.95)), geom = "ribbon", alpha = 0.4) +
+        stat_summary(fun.data = function(x) data.frame(y = median(x)), geom = "line", size = 2) +
+		geom_point(data = dfr, aes(as.numeric(as.character(year)), catch), size = 3) +
+        labs(x = "Year", y = "Incidental catch\n(thousand tonnes)") +
+        theme_bw(base_size = 12)
+gg <- gg + geom_point(data = dfr.map, aes(year, value), col = "tomato", size = 3) + geom_errorbar(data = dfr.map, aes(x = year, ymin = value_low, ymax = value_upp), col = "tomato")
+
+print(gg)
+
+```
+
+# Model diagnostics
+
+```{r, echo = FALSE}    
+# sum empirical observations by year
+dfr <- plyr::ddply(dat.sample, "year", plyr::summarize, 
+             bin_sum = sum(bin),
+             pos_sum = sum(biomass))
+
+# extract simulated and expected observer sample values 
+dfs <- posterior(mdl.fit.mcmc, 
+                 pars = c("bin_sim_sum", "bin_hat_sum", "bin_sim_agg", "pos_sim_sum", "pos_hat_sum", "pos_sim_agg"), 
+                 dim.names = list(list(iter = 1:nit, year = X.dimnames$year)), 
+                 melt = TRUE, 
+                 fun = "median")
+
+for (i in 1:length(dfs)) {
+    
+    colnames(dfs[[i]])[1] <- names(dfs)[i]
+    
+    dfr <- merge(dfr, cbind(year = rownames(dfs[[i]]), dfs[[i]]))  
+}
+
+diagnostics <- dfr
+
+# discrepancy measures
+discrepancy <- list()
+
+emp     <- extract(mdl.fit.mcmc, pars = "DBN")[[1]][,1]
+sim_sum <- extract(mdl.fit.mcmc, pars = "DBN")[[1]][,2]
+sim_agg <- extract(mdl.fit.mcmc, pars = "DBN")[[1]][,3]
+
+discrepancy[["BN"]] <- data.frame(iter = 1:nit, observed = emp, simulated_sum = sim_sum, simulated_aggregate = sim_agg)
+
+emp     <- extract(mdl.fit.mcmc, pars = "DLN")[[1]][,1]
+sim_sum <- extract(mdl.fit.mcmc, pars = "DLN")[[1]][,2]
+sim_agg <- extract(mdl.fit.mcmc, pars = "DLN")[[1]][,3]
+
+discrepancy[["LN"]] <- data.frame(iter = 1:nit, observed = emp, simulated_sum = sim_sum, simulated_aggregate = sim_agg)
+```
+
+
+For evaluation of the model fit, we start with a comparison of expected values against the observations. For the Binomial and log-normal model parts respectively we compare:
+\[
+    \sum_i{I(X_{ij}>0)} \quad \text{vs.} \quad  o_j \cdot \hat{\theta}_j
+\]
+\[
+    \sum_i{X_{ij}} \quad \text{vs.} \quad \exp(\hat{\mu}_j + \ln(o_j) + \hat{\sigma}^2_j / 2)
+\]
+
+Bayesian model diagnostics further involves the posterior prediction of the observed data, which in this case is both $\tilde{Y}_{j}$ and $\tilde{Z}_{j}$, noting that we are now considering the observed data only (not the values predicted for the unobserved effort). Simulating either summed Bernoulli observations or from a Binomial distribution with summed effort is equivalent. However for the log-normal model part, because we are using an approximation to the distribution of summed log-normal random variables, we need to also compare the sum of values predicted at the tow-by-tow levels with those simulated at the aggregate level. Specifically we compare:
+\[
+    \sum_i{I(X_{ij}>0)} \quad \text{vs.} \quad \sum_i{I(\tilde{X}_{ij}>0)} \quad \text{vs.} \quad \tilde{Y}_j 
+\]
+\[
+    \sum_i{X}_{ij} \quad \text{vs.} \quad \sum_i{\tilde{X}_{ij}} \quad \text{vs.} \quad \tilde{Z}_j 
+\]
+
+```{r, echo = FALSE, fig.width=7, fig.height=7}
+par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
+plot(bin_hat_sum ~ bin_sum, diagnostics, pch = 19, xlab = "Observed", ylab = "Expected"); mtext("Binomial model", adj = 0)
+abline(0, 1, lwd = 2, col = 2)
+    
+plot(bin_sim_sum ~ bin_sum, diagnostics, pch = 19, xlab = "Observed", ylab = "Simulated");
+points(bin_sim_agg ~ bin_sum, diagnostics, pch = 19, col = 4)
+abline(0, 1, lwd = 2, col = 2)
+
+legend("topleft", col = c(1, 4), pch = 19, legend = c("Simulation by record", "Aggregate simulation"), bty = "n")
+        
+plot(log(pos_hat_sum) ~ log(pos_sum), diagnostics, pch = 19, xlab = "Observed", ylab = "Expected"); mtext("log-Normal model", adj = 0)
+abline(0, 1, lwd = 2, col = 2)
+
+plot(log(pos_sim_sum) ~ log(pos_sum), diagnostics, pch = 19, xlab = "Observed", ylab = "Simulated")
+points(log(pos_sim_agg) ~ log(pos_sum), diagnostics, pch = 19, col = 4)
+abline(0, 1, lwd = 2, col = 2)
+
+legend("topleft", col = c(1, 4), pch = 19, legend = c("Simulation by record", "Aggregate simulation"), bty = "n")
+```
+
+The final diagnostic are plots of the discrepancies. If the model is performing well, then the difference between observed and expected values should be similar to the difference between simulated and expected values. For each posterior sample, the following discrepancy statistics are therefore calculated for the binomial model part:
+\[
+    \sum_{j}\left\{\sum_i{I(X_{ij(p)}>0)} - o \cdot \theta_{j(p)}\right\}
+\]
+\[
+    \sum_{j}\left\{\sum_i{I(\tilde{X}_{ij(p)}>0)} - o \cdot \theta_{j(p)}\right\}
+\]
+\[
+    \sum_{j}\left\{\tilde{Y}_{(p)} - o \cdot \theta_{j(p)}\right\}
+\]
+and similarly for the log-normal model:
+\[
+    \sum_{j}\left\{\sum_i{X_{ij(p)}} - \exp(\mu_{j(p)} + \ln(o_j) + \sigma^2_{j(p)} / 2)\right\}
+\]
+\[
+    \sum_{j}\left\{\sum_i{\tilde{X}_{ij(p)}} - \exp(\mu_{j(p)} + \ln(o_j) + \sigma^2_{j(p)} / 2)\right\}
+\]
+\[
+    \sum_{j}\left\{\tilde{Z}_{j(p)} - \exp(\mu_{j(p)} + \ln(o_j) + \sigma^2_{j(p)} / 2)\right\}
+\]
+which we can then plot against each other to evaluate model performance.
+
+```{r, echo = FALSE, fig.width=7, fig.height=5}
+par(mfrow = c(1,2))
+lims <- range(discrepancy[["BN"]][,2:4])
+plot(simulated_sum ~ observed, discrepancy[["BN"]], xlim = lims, ylim = lims, xlab = "Observed vs. Expected", ylab = "Simulated vs. Expected")
+points(simulated_aggregate ~ observed, discrepancy[["BN"]], col = 4)
+abline(0, 1, lwd = 2, col = 2)
+mtext("Binomial model\n", adj = 0)
+
+lims <- range(discrepancy[["LN"]][,2:4])
+plot(simulated_sum ~ observed, discrepancy[["LN"]], xlim = lims, ylim = lims, xlab = "Observed vs. Expected", ylab = "Simulated vs. Expected")
+points(simulated_aggregate ~ observed, discrepancy[["LN"]], col = 4)
+abline(0, 1, lwd = 2, col = 2)
+mtext("log-Normal model\n", adj = 0)
+legend("bottomright", col = c(1, 4), pch = 21, legend = c("Simulation by record", "Aggregate simulation"), bty = "n")
+```
 
