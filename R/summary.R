@@ -15,16 +15,18 @@
 #' @examples 
 #' require(rstan)
 #' 
-#' mdl <- "data{ int n; vector[n] x; } parameters{ real mu; real sigma;} model{ x ~ normal(mu, sigma);} \n"	
+#' mdl <- "data{ int n; vector[n] x; } parameters{ real mu; real sigma;} model{ x ~ normal(mu, sigma);} generated quantities{ vector[n] x_sim; for (i in 1:n) x_sim[i] = normal_rng(mu, sigma);} \n"	
 #' mdl <- stan_model(model_code = mdl)
-#' n = 20
-#' x = rnorm(n, 0, 2)
+#' n <- 20
+#' x <- rnorm(n, 0, 2)
 #' 
 #' mdl.fit <- optimizing(mdl, data = list(n = n, x = x), init = list(mu = 0, sigma = 1), draws = 2000)
 #' 
-#' mdl.map <- map(mdl.fit, pars = c("mu", "sigma"), dims = list("mu" = 0, "sigma" = 0))
+#' mdl.map <- map(mdl.fit, pars = c("mu", "sigma", "x_sim"), dims = list("mu" = 0, "sigma" = 0, "x_sim" = n))
 #' 
 #' summary(mdl.map, pars = c("mu", "sigma"))
+#' 
+#' cbind(x = x, x_sim = summary(mdl.map, pars = "x_sim")[[1]][, "mean"])
 #'
 #' @export
 "summary.map" <- function(object, pars) {
@@ -48,6 +50,7 @@
             
             if (n > 1) {
             
+                # par is a vector
                 out[[x]] <- cbind("mean"  = object$estimate[[x]], 
                                   "sd"    = object$sd[[x]],
                                   "2.5%"  = object$quantiles[[x]][2,],
@@ -58,11 +61,12 @@
                 
             } else {
                 
-                out[[x]] <- cbind("mean"  = object$estimate[[x]], 
-                                  "sd"    = object$sd[[x]],
-                                  "2.5%"  = object$quantiles[[x]][2],
-                                  "50%"   = object$quantiles[[x]][1],
-                                  "97.5%" = object$quantiles[[x]][3])
+                # par is a real value
+                out[[x]] <- c("mean"  = object$estimate[[x]], 
+                              "sd"    = object$sd[[x]],
+                              object$quantiles[[x]][2],
+                              object$quantiles[[x]][1],
+                              object$quantiles[[x]][3])
                 
             }
         }
