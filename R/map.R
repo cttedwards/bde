@@ -13,7 +13,7 @@
 #' @param dim.names optional list of dimension names for each parameter. Names for each parameter should be given as a list. Dimension names for unit vectors are ignored (i.e. if \code{dims = 0}). 
 #' If only a single \code{dim.names} list entry is given it is applied to all parameters.
 #' 
-#' @note This function uses pattern matching to find the parameter values in the returned object from \code{\link[rstan]{optimizing}}. Caution should be exercised if the parameter name given in the \code{pars} argument could match more than one model output. For example, specifying \code{pars = "catch"} would match parameters labelled \code{catch} and \code{catch_sum}, which will confuse the dimension specification. This defect needs to be resolved using regular expression matching.
+#' @note This function uses regular expression matching to find the parameter values in the returned object from \code{\link[rstan]{optimizing}}.
 #'
 #' @examples
 #' require(rstan)
@@ -25,7 +25,7 @@
 #' 
 #' mdl.fit <- optimizing(mdl, data = list(n = n, x = x), init = list(mu = 0), draws = 2000)
 #' 
-#' map(mdl.fit, pars = c("mu", "x_sim[", "x_sim_sum"), dims = list("mu" = 0, "x_sim[" = n, "x_sim_sum" = 0))
+#' map(mdl.fit, pars = c("mu", "x_sim", "x_sim_sum"), dims = list("mu" = 0, "x_sim" = n, "x_sim_sum" = 0))
 #' 
 #' @export
 "map" <- function(object, pars, ...) UseMethod("map")
@@ -67,7 +67,7 @@
             } else dn <- dim.names[[1]]
         } else dn <- NULL
         
-        m <- regexpr(pars[i], names(object[['par']]), fixed = TRUE)
+        m <- regexpr(paste0(pars[i],"(\\[|$)"), names(object[['par']]))
         m <- object[['par']][m > 0]
         
         if (all(ds == 0)) { 
@@ -85,7 +85,7 @@
 		
 		if (ERROR) {
 			
-			m <- regexpr(pars[i], colnames(object[['theta_tilde']]), fixed = TRUE)
+			m <- regexpr(paste0(pars[i],"(\\[|$)"), colnames(object[['theta_tilde']]))
 			m <- object[['theta_tilde']][, m > 0]
         
 			if (all(ds == 0)) { 
