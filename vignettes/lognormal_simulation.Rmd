@@ -6,7 +6,7 @@ output:
   rmarkdown::html_vignette:
     toc: no
 vignette: >
-  %\VignetteIndexEntry{bde}
+  %\VignetteIndexEntry{sim}
   %\VignetteEngine{knitr::rmarkdown}
   \usepackage[utf8]{inputenc}
 ---

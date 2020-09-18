@@ -7,7 +7,7 @@ output:
     fig_caption: yes
     toc: no
 vignette: >
-  %\VignetteIndexEntry{lhm}
+  %\VignetteIndexEntry{bde}
   %\VignetteEngine{knitr::rmarkdown}
   \usepackage[utf8]{inputenc}
 ---
@@ -166,7 +166,7 @@ dat.predict <- data_prep(dat,
                          covar.names = list(from = 'effort', to = 'effort'))
 ```
 
-We then prepare the dimensions, dimension names, and desing matrices for both the observer and commercial data:
+We then prepare the dimensions, dimension names, and design matrices for both the observer and commercial data:
 ```{r}
 # make dimensions and labels
 X.dims     <- data_dims(dat.sample, dat.predict)
@@ -202,7 +202,7 @@ nit <- 2000
 mdl.fit.map <- optimizing(mdl, mdl.dat, init = function() mdl.ini, hessian = TRUE, draws = nit)
 
 # extract results
-res.map <- map(mdl.fit.map, pars = c("predicted_catch"), dims = list(list(X.dims['year'])))
+res.map <- map(mdl.fit.map, pars = c("predicted_catch"), dims = list(X.dims['year']))
 
 # print summary
 summary(res.map, pars = c("predicted_catch"))
