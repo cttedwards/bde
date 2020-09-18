@@ -68,7 +68,7 @@ model_code <- function(covariates, path = ".", area.conjunct = TRUE, interaction
 	output.filename <- file.path(path, paste0(id, ".stan"))
 	
 	# report model definition
-	message(paste("writing", ifelse(hierarchical, "hierarchical", ""), id, "model to", ifelse(path == ".", "current directory", path), ifelse(interaction, "with", "without"), "interaction term and assuming observer sampling and estimation areas are the", ifelse(area.conjunct, "same", "different")))
+	message(paste("writing", ifelse(hierarchical, "hierarchical", ""), id, "model to", ifelse(path == ".", "current directory", path), ifelse(interaction, "with", "without"), "interaction term and assuming observer sampling and estimation areas are", ifelse(area.conjunct, "the same", "different")))
 	
 	# write model code according to model definition
 	switch(def,
