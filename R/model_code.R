@@ -73,26 +73,26 @@ model_code <- function(covariates, path = ".", area.conjunct = TRUE, interaction
 	# write model code according to model definition
 	switch(def,
 		 
-		 "Y000_000"                      = { data("reg_Y000_000", package = "bde", envir = environment()); writeLines(reg_Y000_000, con = output.filename) },
-		 "Y000_00H"                      = { data("reg_Y000_00H", package = "bde", envir = environment()); writeLines(reg_Y000_00H, con = output.filename) },
+		 "Y000_000"                      = { writeLines(readLines(system.file("extdata/stan", "Y000_000.stan", package = "bde")), con = output.filename) },
+		 "Y000_00H"                      = { writeLines(readLines(system.file("extdata/stan", "Y000_00H.stan", package = "bde")), con = output.filename) },
 		 
-		 "YA00_00H"                      = { data("reg_YA00_00H", package = "bde", envir = environment()); writeLines(reg_YA00_00H, con = output.filename) },
-		 "YA00_0IH"                      = { data("reg_YA00_0IH", package = "bde", envir = environment()); writeLines(reg_YA00_0IH, con = output.filename) },
-		 "YA00_D0H"                      = { data("reg_YA00_D0H", package = "bde", envir = environment()); writeLines(reg_YA00_D0H, con = output.filename) },
-		 "YA00_DIH"                      = { data("reg_YA00_DIH", package = "bde", envir = environment()); writeLines(reg_YA00_DIH, con = output.filename) },
+		 "YA00_00H"                      = { writeLines(readLines(system.file("extdata/stan", "YA00_00H.stan", package = "bde")), con = output.filename) },
+		 "YA00_0IH"                      = { writeLines(readLines(system.file("extdata/stan", "YA00_0IH.stan", package = "bde")), con = output.filename) },
+		 "YA00_D0H"                      = { writeLines(readLines(system.file("extdata/stan", "YA00_D0H.stan", package = "bde")), con = output.filename) },
+		 "YA00_DIH"                      = { writeLines(readLines(system.file("extdata/stan", "YA00_DIH.stan", package = "bde")), con = output.filename) },
 		 
-		 "YA00_000"                      = { data("reg_YA00_000", package = "bde", envir = environment()); writeLines(reg_YA00_000, con = output.filename) },
-		 "YA00_0I0"                      = { data("reg_YA00_0I0", package = "bde", envir = environment()); writeLines(reg_YA00_0I0, con = output.filename) },
-		 "YA00_D00"                      = { data("reg_YA00_D00", package = "bde", envir = environment()); writeLines(reg_YA00_D00, con = output.filename) },
-		 "YA00_DI0"                      = { data("reg_YA00_DI0", package = "bde", envir = environment()); writeLines(reg_YA00_DI0, con = output.filename) },
+		 "YA00_000"                      = { writeLines(readLines(system.file("extdata/stan", "YA00_000.stan", package = "bde")), con = output.filename) },
+		 "YA00_0I0"                      = { writeLines(readLines(system.file("extdata/stan", "YA00_0I0.stan", package = "bde")), con = output.filename) },
+		 "YA00_D00"                      = { writeLines(readLines(system.file("extdata/stan", "YA00_D00.stan", package = "bde")), con = output.filename) },
+		 "YA00_DI0"                      = { writeLines(readLines(system.file("extdata/stan", "YA00_DI0.stan", package = "bde")), con = output.filename) },
 		 
-		 "YAM0_00H"                      = { data("reg_YAM0_00H", package = "bde", envir = environment()); writeLines(reg_YAM0_00H, con = output.filename) },
-		 "YAM0_0IH"                      = { data("reg_YAM0_0IH", package = "bde", envir = environment()); writeLines(reg_YAM0_0IH, con = output.filename) },
-		 "YAM0_D0H"                      = { data("reg_YAM0_D0H", package = "bde", envir = environment()); writeLines(reg_YAM0_D0H, con = output.filename) },
-		 "YAM0_DIH"                      = { data("reg_YAM0_DIH", package = "bde", envir = environment()); writeLines(reg_YAM0_DIH, con = output.filename) },
+		 "YAM0_00H"                      = { writeLines(readLines(system.file("extdata/stan", "YAM0_00H.stan", package = "bde")), con = output.filename) },
+		 "YAM0_0IH"                      = { writeLines(readLines(system.file("extdata/stan", "YAM0_0IH.stan", package = "bde")), con = output.filename) },
+		 "YAM0_D0H"                      = { writeLines(readLines(system.file("extdata/stan", "YAM0_D0H.stan", package = "bde")), con = output.filename) },
+		 "YAM0_DIH"                      = { writeLines(readLines(system.file("extdata/stan", "YAM0_DIH.stan", package = "bde")), con = output.filename) },
 		 
-		 "YAMC_00H"                      = { data("reg_YAMC_00H", package = "bde", envir = environment()); writeLines(reg_YAMC_00H, con = output.filename) },
-		 "YAMC_0IH"                      = { data("reg_YAMC_0IH", package = "bde", envir = environment()); writeLines(reg_YAMC_0IH, con = output.filename) },
-		 "YAMC_D0H"                      = { data("reg_YAMC_D0H", package = "bde", envir = environment()); writeLines(reg_YAMC_D0H, con = output.filename) },
-		 "YAMC_DIH"                      = { data("reg_YAMC_DIH", package = "bde", envir = environment()); writeLines(reg_YAMC_DIH, con = output.filename) })
+		 "YAMC_00H"                      = { writeLines(readLines(system.file("extdata/stan", "YAMC_00H.stan", package = "bde")), con = output.filename) },
+		 "YAMC_0IH"                      = { writeLines(readLines(system.file("extdata/stan", "YAMC_0IH.stan", package = "bde")), con = output.filename) },
+		 "YAMC_D0H"                      = { writeLines(readLines(system.file("extdata/stan", "YAMC_D0H.stan", package = "bde")), con = output.filename) },
+		 "YAMC_DIH"                      = { writeLines(readLines(system.file("extdata/stan", "YAMC_DIH.stan", package = "bde")), con = output.filename) })
 }
